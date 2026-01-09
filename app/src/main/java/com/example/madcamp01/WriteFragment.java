@@ -15,4 +15,4 @@ public class WriteFragment extends Fragment { // 클래스 이름
 
         return inflater.inflate(R.layout.fragment_write, container, false);
     }
-}
+}123
