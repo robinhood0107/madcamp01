@@ -9,6 +9,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 public class MainActivity extends AppCompatActivity {
+    //자바에서는 onCreate() 함수가 시작점
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
