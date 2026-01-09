@@ -7,6 +7,7 @@ import android.view.ViewGroup;
 import androidx.fragment.app.Fragment;
 
 public class GalleryFragment extends Fragment { // 클래스 이름
+    //전체 갤러리
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
