@@ -28,7 +28,7 @@
         android:id="@+id/edit_login_password"
         android:layout_width="match_parent"
         android:layout_height="50dp"
-        android:hint="비밀번호"
+        android:hint="비밀번호 (6자이상)"
         android:inputType="textPassword"
         android:layout_marginBottom="15dp" />
     <EditText
