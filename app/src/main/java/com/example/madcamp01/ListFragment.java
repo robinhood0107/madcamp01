@@ -16,6 +16,8 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
@@ -62,8 +64,9 @@ public class ListFragment extends Fragment {
             args.putParcelable("postData", item);
             detailFragment.setArguments(args);
             requireActivity().getSupportFragmentManager().beginTransaction()
-                    .replace(R.id.fragment_container, detailFragment)
-                    .addToBackStack(null)
+                    .add(R.id.fragment_container, detailFragment) // 기존 화면 위에 추가
+                    .hide(this) // 현재 화면(갤러리)은 잠시 숨김
+                    .addToBackStack(null) // 뒤로 가기 가능하게 설정
                     .commit();
         });
 
@@ -164,9 +167,20 @@ public class ListFragment extends Fragment {
             loadingProgressBar.setVisibility(View.VISIBLE);
         }
 
-        Query query = (lastVisible == null)
-                ? db.collection("TravelPosts").orderBy("createdAt", Query.Direction.DESCENDING).limit(LIMIT)
-                : db.collection("TravelPosts").orderBy("createdAt", Query.Direction.DESCENDING).startAfter(lastVisible).limit(LIMIT);
+        // 1. 현재 로그인한 사용자의 정보(이메일) 가져오기
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        String currentUserEmail = (user != null) ? user.getEmail() : "";
+
+        // 2. 쿼리에 본인 이메일 필터 추가 (userEmail 필드가 Firestore에 저장되어 있어야 함)
+        Query query = db.collection("TravelPosts")
+                .whereEqualTo("userEmail", currentUserEmail) // 본인 글만 필터링
+                .orderBy("createdAt", Query.Direction.DESCENDING);
+
+        if (lastVisible != null) {
+            query = query.startAfter(lastVisible);
+        }
+
+        query = query.limit(LIMIT);
 
         query.get().addOnSuccessListener(queryDocumentSnapshots -> {
             loadingProgressBar.setVisibility(View.GONE);
@@ -178,6 +192,7 @@ public class ListFragment extends Fragment {
                 lastVisible = queryDocumentSnapshots.getDocuments().get(queryDocumentSnapshots.size() - 1);
             } else if (lastVisible == null) {
                 // 첫 로드인데 게시물이 없는 경우
+                Toast.makeText(getContext(), "게시물이 아직 없습니다.", Toast.LENGTH_LONG).show();
             }
             isLoading = false;
         }).addOnFailureListener(e -> {
