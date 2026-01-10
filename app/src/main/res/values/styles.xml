@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 팝업 메뉴의 너비를 내용물에 맞게 조절하는 스타일 -->
+    <style name="Widget.App.PopupMenu.Small" parent="Widget.MaterialComponents.PopupMenu.Overflow">
+        <item name="android:dropDownWidth">wrap_content</item>
+    </style>
+</resources>

@@ -19,13 +19,12 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- 로딩 텍스트 -->
-    <TextView
-        android:id="@+id/loadingTextView"
+    <!-- 로딩 스피너 (ProgressBar) -->
+    <ProgressBar
+        android:id="@+id/loadingProgressBar"
+        style="?android:attr/progressBarStyle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="게시물을 가져오는 중"
-        android:textSize="18sp"
         android:visibility="gone"
         tools:visibility="visible"
         app:layout_constraintBottom_toBottomOf="parent"
