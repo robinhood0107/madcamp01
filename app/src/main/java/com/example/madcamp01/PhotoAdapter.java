@@ -19,7 +19,14 @@ public class PhotoAdapter extends RecyclerView.Adapter<PhotoAdapter.PhotoViewHol
 
     private List<Uri> uriList;
     private Context context;
-
+    // 삭제 클릭 리스너 인터페이스
+    public interface OnPhotoDeleteListener {
+        void onDelete(int position);
+    }
+    private OnPhotoDeleteListener deleteListener;
+    public void setOnPhotoDeleteListener(OnPhotoDeleteListener listener) {
+        this.deleteListener = listener;
+    }
     // 생성자
     public PhotoAdapter(List<Uri> uriList, Context context) {
         this.uriList = uriList;
@@ -41,9 +48,19 @@ public class PhotoAdapter extends RecyclerView.Adapter<PhotoAdapter.PhotoViewHol
         Uri uri = uriList.get(position);
 
         // 이미지 주소를 ImageView에 세팅
-        Glide.with(context) // mContext -> context로 변경
-                .load(uri)  // imageUri -> uri로 변경
-                .into(holder.ivPhoto); // holder.imageView -> holder.ivPhoto로 변경
+        Glide.with(context)
+                .load(uri)
+                .into(holder.ivPhoto);
+        //사진 클릭시 삭제
+        holder.btnDeletePhoto.setOnClickListener(v -> {
+            if (deleteListener != null) {
+                // 정확한 현재 위치를 파악하기 위해 holder.getAdapterPosition() 권장
+                int currentPos = holder.getAdapterPosition();
+                if (currentPos != RecyclerView.NO_POSITION) {
+                    deleteListener.onDelete(currentPos);
+                }
+            }
+        });
     }
 
     // [필수 구현 3] 전체 아이템 개수를 알려주는 메서드
@@ -55,11 +72,12 @@ public class PhotoAdapter extends RecyclerView.Adapter<PhotoAdapter.PhotoViewHol
     // 사진 한 장을 붙잡고 있을 바구니(ViewHolder) 클래스
     public static class PhotoViewHolder extends RecyclerView.ViewHolder {
         ImageView ivPhoto;
-
+        ImageView btnDeletePhoto;
         public PhotoViewHolder(@NonNull View itemView) {
             super(itemView);
             // item_photo.xml에 있는 ImageView와 연결
             ivPhoto = itemView.findViewById(R.id.iv_photo);
+            btnDeletePhoto = itemView.findViewById(R.id.btn_delete_photo);
         }
     }
 }

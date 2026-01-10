@@ -15,6 +15,7 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
@@ -119,6 +120,38 @@ public class WriteFragment extends Fragment {
             uploadToFirebase();
         });
 
+        //삭제 및 변경 기능 구현
+        // 1. 삭제 리스너 연결
+        photoAdapter.setOnPhotoDeleteListener(position -> {
+            selectedImageUris.remove(position);
+            photoAdapter.notifyItemRemoved(position);
+            photoAdapter.notifyItemRangeChanged(position, selectedImageUris.size());
+        });
+
+        // 2. 순서 변경(Drag & Drop) 기능 추가
+        ItemTouchHelper itemTouchHelper = new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(
+                ItemTouchHelper.UP | ItemTouchHelper.DOWN | ItemTouchHelper.START | ItemTouchHelper.END, 0) {
+            @Override
+            public boolean onMove(@NonNull RecyclerView recyclerView,
+                                  @NonNull RecyclerView.ViewHolder viewHolder,
+                                  @NonNull RecyclerView.ViewHolder target) {
+                // 데이터 리스트 내에서 위치 변경
+                int fromPos = viewHolder.getAdapterPosition();
+                int toPos = target.getAdapterPosition();
+
+                java.util.Collections.swap(selectedImageUris, fromPos, toPos);
+                photoAdapter.notifyItemMoved(fromPos, toPos);
+                return true;
+            }
+
+            @Override
+            public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
+                // 스와이프 삭제는 사용하지 않으므로 비워둠
+            }
+        });
+
+        // 3. 리사이클러뷰에 연결
+        itemTouchHelper.attachToRecyclerView(recyclerView);
         return view;
     }
     // [업로드 함수]
@@ -239,4 +272,14 @@ public class WriteFragment extends Fragment {
             progressDialog.dismiss();
         }
     }
+    public boolean hasChanges() { //사용자가 제목을 입력했거나 사진을 한 장이라도 올렸는지 확인하는 함수
+        String title = (editTripTitle != null) ? editTripTitle.getText().toString().trim() : "";
+
+        // 1. 제목이 비어있지 않거나
+        // 2. 선택된 사진이 하나라도 있다면 '내용이 있음'으로 판단
+        return !title.isEmpty() || (selectedImageUris != null && !selectedImageUris.isEmpty());
+    }
 }
+
+
+

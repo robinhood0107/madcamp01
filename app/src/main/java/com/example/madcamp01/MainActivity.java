@@ -3,6 +3,7 @@ package com.example.madcamp01;
 import android.os.Bundle;
 import android.view.MenuItem;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
@@ -56,37 +57,91 @@ public class MainActivity extends AppCompatActivity {
         bottomNav.setOnItemSelectedListener(new BottomNavigationView.OnItemSelectedListener() {
             @Override
             public boolean onNavigationItemSelected(@NonNull MenuItem item) {
-                Fragment selectedFragment = null;
                 int itemId = item.getItemId();
-                // 현재 선택된 탭을 다시 누른 경우 아무것도 하지 않음
+
+                // 1. 현재 선택된 탭을 다시 누른 경우 무시
                 if (itemId == bottomNav.getSelectedItemId()) {
                     return false;
                 }
+
+                // [중요] 2. 현재 화면이 WriteFragment인지 확인하고 내용이 있는지 체크
+                Fragment currentFragment = getSupportFragmentManager().findFragmentById(R.id.fragment_container);
+                if (currentFragment instanceof WriteFragment) {
+                    WriteFragment writeFrag = (WriteFragment) currentFragment;
+
+                    // WriteFragment에 "내용이 수정되었나?" 물어보는 함수가 있다고 가정 (아래에서 만들 예정)
+                    if (writeFrag.hasChanges()) {
+                        // 내용이 있다면 팝업 띄우기
+                        new androidx.appcompat.app.AlertDialog.Builder(MainActivity.this)
+                                .setTitle("작성 취소")
+                                .setMessage("이 페이지를 나가면 작성 중인 내용이 사라집니다. 계속하시겠습니까?")
+                                .setPositiveButton("나가기", (dialog, which) -> {
+                                    // 사용자가 '나가기'를 선택하면 그제서야 탭 이동 수행
+                                    switchFragment(itemId);
+                                })
+                                .setNegativeButton("취소", null)
+                                .show();
+                        return false; // 일단 리스너에서는 false를 반환하여 즉시 이동을 막음
+                    }
+                }
+
+                // 수정 중이 아니라면 바로 이동
+                switchFragment(itemId);
+                return true;
+            }
+
+            // 탭 이동 로직을 별도 함수로 분리 (중복 방지)
+            private void switchFragment(int itemId) {
+                Fragment selectedFragment = null;
                 if (itemId == R.id.nav_write) {
-                    // 1번 탭: 글쓰기
                     selectedFragment = new WriteFragment();
-                    setTitle("글쓰기"); // 제목 변경
+                    setTitle("글쓰기");
                 } else if (itemId == R.id.nav_my_list) {
-                    // 2번 탭: 내 여행 리스트 (기존 ListFragment)
                     selectedFragment = new ListFragment();
-                    setTitle("내 여행 리스트"); // 제목 변경
+                    setTitle("내 여행 리스트");
                 } else if (itemId == R.id.nav_sns_gallery) {
-                    // 3번 탭: 전체 갤러리 (SNS처럼 전체)
                     selectedFragment = new GalleryFragment();
-                    setTitle("갤러리"); // 제목 변경
+                    setTitle("갤러리");
                 } else if (itemId == R.id.nav_my_page) {
-                    // 4번 탭: 마이페이지
                     selectedFragment = new MypageFragment();
-                    setTitle("갤러리"); // 제목 변경
+                    setTitle("마이페이지");
                 }
 
                 if (selectedFragment != null) {
+                    getSupportFragmentManager().popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
                     getSupportFragmentManager().beginTransaction()
                             .replace(R.id.fragment_container, selectedFragment)
                             .commit();
+                    // 팝업을 통해 이동하는 경우 하단 바 아이콘 상태를 강제로 맞춰줘야 함
+                    bottomNav.getMenu().findItem(itemId).setChecked(true);
                 }
-                return true;
             }
         });
+        // 뒤로 가기 버튼 클릭 시 확인 팝업 띄우기
+        OnBackPressedCallback callback = new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                // 1. 현재 백스택에 프래그먼트가 남아있는지 확인
+                if (getSupportFragmentManager().getBackStackEntryCount() > 0) {
+                    // 수정 화면 등에서 뒤로 가기를 누르면 이전 화면으로 이동
+                    getSupportFragmentManager().popBackStack();
+                } else {
+                    // 2. 더 이상 뒤로 갈 화면이 없으면 종료 확인 팝업 띄우기
+                    new androidx.appcompat.app.AlertDialog.Builder(MainActivity.this)
+                            .setTitle("앱 종료")
+                            .setMessage("정말 종료하시겠습니까?")
+                            .setPositiveButton("종료", (dialog, which) -> {
+                                // 실제 앱 종료
+                                finish();
+                            })
+                            .setNegativeButton("취소", null)
+                            .show();
+                }
+            }
+        };
+        // 콜백 등록
+        getOnBackPressedDispatcher().addCallback(this, callback);
+
     }
+
 }
