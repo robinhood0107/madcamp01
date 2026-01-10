@@ -22,8 +22,8 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
 
     private final Context context;
     private final List<PostItem> postList;
-    private final boolean isMyList; // [추가] 개인/SNS 게시판 구분 플래그
-    private final String currentUserId; // [추가] 현재 사용자 ID
+    private final boolean isMyList;
+    private final String currentUserId;
 
     private OnItemClickListener clickListener;
     private OnItemLongClickListener longClickListener;
@@ -33,7 +33,6 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
         this.postList = new ArrayList<>();
         this.isMyList = isMyList;
 
-        // 현재 로그인한 사용자 ID 가져오기
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
         this.currentUserId = (user != null) ? user.getUid() : null;
     }
@@ -75,25 +74,23 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
     public void onBindViewHolder(@NonNull PostViewHolder holder, int position) {
         PostItem item = postList.get(position);
 
-        // 이메일 및 제목 설정
         holder.tvUserEmail.setText(item.getUserEmail() != null ? item.getUserEmail() : "unknown_email");
         holder.tvTitle.setText(item.getTitle());
 
-        // [추가] 공개/비공개 상태 표시 로직
         if (isMyList && currentUserId != null && currentUserId.equals(item.getUserId())) {
             holder.tvPublicStatus.setVisibility(View.VISIBLE);
-            if (item.isPublic()) {
+            // [수정] 변경된 getter 메소드 사용
+            if (item.getIsPublic()) {
                 holder.tvPublicStatus.setText("(공개)");
-                holder.tvPublicStatus.setTextColor(ContextCompat.getColor(context, R.color.public_status_color)); // 초록색
+                holder.tvPublicStatus.setTextColor(ContextCompat.getColor(context, R.color.public_status_color));
             } else {
                 holder.tvPublicStatus.setText("(비공개)");
-                holder.tvPublicStatus.setTextColor(ContextCompat.getColor(context, R.color.private_status_color)); // 회색
+                holder.tvPublicStatus.setTextColor(ContextCompat.getColor(context, R.color.private_status_color));
             }
         } else {
             holder.tvPublicStatus.setVisibility(View.GONE);
         }
 
-        // 이미지 로딩
         List<String> images = item.getImages();
         if (images != null && !images.isEmpty()) {
             Glide.with(context).load(images.get(0)).placeholder(R.drawable.ic_launcher_background).into(holder.ivImage);
@@ -101,7 +98,6 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             holder.ivImage.setImageResource(R.drawable.ic_launcher_background);
         }
 
-        // 리스너 바인딩
         holder.itemView.setOnClickListener(v -> {
             if (clickListener != null && holder.getAdapterPosition() != RecyclerView.NO_POSITION) {
                 clickListener.onItemClick(postList.get(holder.getAdapterPosition()));
@@ -122,7 +118,6 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
         return postList != null ? postList.size() : 0;
     }
 
-    // 리스너 인터페이스 (기존과 동일)
     public interface OnItemClickListener { void onItemClick(PostItem item); }
     public interface OnItemLongClickListener { void onItemLongClick(View anchorView, PostItem item); }
     public void setOnItemClickListener(OnItemClickListener listener) { this.clickListener = listener; }

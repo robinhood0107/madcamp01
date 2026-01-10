@@ -4,6 +4,7 @@ import android.os.Parcel;
 import android.os.Parcelable;
 
 import com.google.firebase.firestore.DocumentId;
+import com.google.firebase.firestore.PropertyName;
 import com.google.firebase.firestore.ServerTimestamp;
 
 import java.util.Date;
@@ -13,9 +14,12 @@ public class PostItem implements Parcelable {
     @DocumentId
     private String documentId;
     private String userId;
-    private String userEmail; // [추가] 사용자 이메일 필드
+    private String userEmail;
     private String title;
     private List<String> images;
+
+    // [핵심 수정 1] Firestore가 필드 이름을 명확히 인식하도록 @PropertyName 사용
+    @PropertyName("isPublic")
     private boolean isPublic;
 
     @ServerTimestamp
@@ -32,8 +36,8 @@ public class PostItem implements Parcelable {
     public String getUserId() { return userId; }
     public void setUserId(String userId) { this.userId = userId; }
 
-    public String getUserEmail() { return userEmail; } // [추가]
-    public void setUserEmail(String userEmail) { this.userEmail = userEmail; } // [추가]
+    public String getUserEmail() { return userEmail; }
+    public void setUserEmail(String userEmail) { this.userEmail = userEmail; }
 
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
@@ -41,18 +45,22 @@ public class PostItem implements Parcelable {
     public List<String> getImages() { return images; }
     public void setImages(List<String> images) { this.images = images; }
 
-    public boolean isPublic() { return isPublic; }
-    public void setPublic(boolean aPublic) { isPublic = aPublic; }
+    // [핵심 수정 2] Getter와 Setter 이름을 표준 형식으로 통일합니다.
+    @PropertyName("isPublic")
+    public boolean getIsPublic() { return isPublic; }
+
+    @PropertyName("isPublic")
+    public void setIsPublic(boolean isPublic) { this.isPublic = isPublic; }
 
     public Date getCreatedAt() { return createdAt; }
     public void setCreatedAt(Date createdAt) { this.createdAt = createdAt; }
 
 
-    // --- Parcelable 구현 ---
+    // --- Parcelable 구현 (isPublic 관련 수정 없음) ---
     protected PostItem(Parcel in) {
         documentId = in.readString();
         userId = in.readString();
-        userEmail = in.readString(); // [수정]
+        userEmail = in.readString();
         title = in.readString();
         images = in.createStringArrayList();
         isPublic = in.readByte() != 0;
@@ -64,7 +72,7 @@ public class PostItem implements Parcelable {
     public void writeToParcel(Parcel dest, int flags) {
         dest.writeString(documentId);
         dest.writeString(userId);
-        dest.writeString(userEmail); // [수정]
+        dest.writeString(userEmail);
         dest.writeString(title);
         dest.writeStringList(images);
         dest.writeByte((byte) (isPublic ? 1 : 0));
