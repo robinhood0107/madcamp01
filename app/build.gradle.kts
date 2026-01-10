@@ -52,4 +52,7 @@ dependencies {
     implementation ("com.google.firebase:firebase-firestore")
     implementation ("com.google.firebase:firebase-storage")
     implementation("com.github.bumptech.glide:glide:4.16.0")
+
+    // PhotoView 라이브러리 추가
+    implementation("com.github.chrisbanes:PhotoView:2.3.0")
 }
