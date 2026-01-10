@@ -49,8 +49,8 @@ public class WriteFragment extends Fragment {
     private FirebaseAuth auth; // Firebase Authentication 인스턴스 추가
     private androidx.appcompat.app.AlertDialog progressDialog; // 로딩바용
     private com.google.android.material.materialswitch.MaterialSwitch switchIsPublic; // 공개 비공개 버튼
-    private String editPostId = null;// 수정 기능
-
+    private String editPostId = null;// 수정 중인지 체크
+    private boolean isSaving = false; // 저장 프로세스 중인지 확인
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -163,6 +163,7 @@ public class WriteFragment extends Fragment {
             Toast.makeText(getContext(), "제목과 사진을 입력해주세요.", Toast.LENGTH_SHORT).show();
             return;
         }
+        isSaving = true;
         showProgressDialog(); //로딩바 띄우기
         // 사진들을 하나씩 Storage에 먼저 올리고, 그 주소(URL)를 리스트에 담습니다.
         List<String> finalUrls = new ArrayList<>();
@@ -273,8 +274,12 @@ public class WriteFragment extends Fragment {
         }
     }
     public boolean hasChanges() { //사용자가 제목을 입력했거나 사진을 한 장이라도 올렸는지 확인하는 함수
-        String title = (editTripTitle != null) ? editTripTitle.getText().toString().trim() : "";
+        // 만약 저장 버튼을 눌러서 나가는 중이라면 무조건 false 반환 (팝업 안 띄움)
+        if (isSaving) {
+            return false;
+        }
 
+        String title = (editTripTitle != null) ? editTripTitle.getText().toString().trim() : "";
         // 1. 제목이 비어있지 않거나
         // 2. 선택된 사진이 하나라도 있다면 '내용이 있음'으로 판단
         return !title.isEmpty() || (selectedImageUris != null && !selectedImageUris.isEmpty());

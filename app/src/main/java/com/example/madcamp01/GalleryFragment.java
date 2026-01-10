@@ -66,8 +66,9 @@ public class GalleryFragment extends Fragment {
             args.putParcelable("postData", item);
             detailFragment.setArguments(args);
             requireActivity().getSupportFragmentManager().beginTransaction()
-                    .replace(R.id.fragment_container, detailFragment)
-                    .addToBackStack(null)
+                    .add(R.id.fragment_container, detailFragment) // 기존 화면 위에 추가
+                    .hide(this) // 현재 화면(갤러리)은 잠시 숨김
+                    .addToBackStack(null) // 뒤로 가기 가능하게 설정
                     .commit();
         });
 
@@ -96,9 +97,9 @@ public class GalleryFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        if (isInitialLoad) {
+        // 어댑터에 데이터가 하나도 없는 경우에만 로드하도록 변경
+        if (adapter == null || adapter.getItemCount() == 0) {
             loadMoreData(true);
-            isInitialLoad = false;
         }
     }
 
@@ -184,7 +185,7 @@ public class GalleryFragment extends Fragment {
             loadingProgressBar.setVisibility(View.VISIBLE);
         }
 
-        // [수정] 쿼리에서 정확한 필드 이름인 "isPublic"을 사용합니다.
+        // 쿼리에서 정확한 필드 이름인 "isPublic"을 사용합니다.
         Query query = db.collection("TravelPosts")
                 .whereEqualTo("isPublic", true)
                 .orderBy("createdAt", sortDirection);
