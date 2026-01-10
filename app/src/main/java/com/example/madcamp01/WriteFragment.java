@@ -1,7 +1,13 @@
 package com.example.madcamp01;
 
+import android.content.ContentResolver;
+import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.ParcelFileDescriptor;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -30,10 +36,22 @@ import com.google.firebase.storage.StorageReference; // 스토리지 참조용
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class WriteFragment extends Fragment {
 
@@ -41,7 +59,7 @@ public class WriteFragment extends Fragment {
     private EditText editTripTitle;       // 여행 제목 입력창
     private RecyclerView recyclerView;    // 사진 리스트 뷰
     private PhotoAdapter photoAdapter;    // 사진 리스트 관리자(어댑터)
-    private List<Uri> selectedImageUris = new ArrayList<>(); // 사진 주소들을 담을 보관함
+    private List<PhotoInfo> photoInfoList = new ArrayList<>(); // 사진 정보 리스트
     private FirebaseFirestore db = FirebaseFirestore.getInstance();
     private FirebaseStorage storage = FirebaseStorage.getInstance();
     // 갤러리 실행 도구
@@ -51,12 +69,25 @@ public class WriteFragment extends Fragment {
     private com.google.android.material.materialswitch.MaterialSwitch switchIsPublic; // 공개 비공개 버튼
     private String editPostId = null;// 수정 중인지 체크
     private boolean isSaving = false; // 저장 프로세스 중인지 확인
+    
+    // 여행 정보
+    private Date startDate;  // 여행 시작일
+    private int travelDays;  // 여행 일수
+    private ExecutorService executorService = Executors.newFixedThreadPool(4); // EXIF 추출용 스레드 풀
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         // 수정 모드 체크
         if (getArguments() != null) {
             editPostId = getArguments().getString("postId");
+            // 신규 작성 시 여행 정보 가져오기
+            if (editPostId == null) {
+                travelDays = getArguments().getInt("travelDays", 0);
+                long startDateLong = getArguments().getLong("startDate", 0);
+                if (startDateLong > 0) {
+                    startDate = new Date(startDateLong);
+                }
+            }
         }
 
         // 2. 사진 선택 결과 처리기 등록
@@ -64,14 +95,21 @@ public class WriteFragment extends Fragment {
                 new ActivityResultContracts.GetMultipleContents(),
                 uris -> {
                     if (uris != null && !uris.isEmpty()) {
-                        selectedImageUris.addAll(uris);
-                        // 어댑터에게 데이터가 바뀌었으니 화면을 새로고침하라고 명령
-                        photoAdapter.notifyDataSetChanged();
+                        // 사진 추가 시 EXIF 추출 및 일차 분류
+                        processNewPhotos(uris);
                     }
                 }
         );
         // Firebase Authentication 인스턴스 초기화
         auth = FirebaseAuth.getInstance();
+    }
+    
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (executorService != null) {
+            executorService.shutdown();
+        }
     }
 
     @Override
@@ -88,26 +126,77 @@ public class WriteFragment extends Fragment {
         switchIsPublic = view.findViewById(R.id.switch_is_public);
 
         // 5. 리사이클러뷰(사진 리스트) 설정
-        // 사진을 가로(Horizontal)로 나열하도록 설정
-        GridLayoutManager layoutManager = new GridLayoutManager(getContext(), 2);
+        // 일차별로 그룹화되어 있으므로 LinearLayoutManager 사용
+        androidx.recyclerview.widget.LinearLayoutManager layoutManager = 
+            new androidx.recyclerview.widget.LinearLayoutManager(getContext());
         recyclerView.setLayoutManager(layoutManager);
 
         // 어댑터 연결 (보관함과 화면을 연결)
-        photoAdapter = new PhotoAdapter(selectedImageUris, getContext());
+        photoAdapter = new PhotoAdapter(photoInfoList, getContext());
         recyclerView.setAdapter(photoAdapter);
         // 수정 모드 시 기존 게시물 정보 가져오기
         if (editPostId != null) {
             editTripTitle.setText(getArguments().getString("title"));
             switchIsPublic.setChecked(getArguments().getBoolean("isPublic"));
             btnSave.setText("수정 완료"); //저장하기 버튼을 수정하기로 바꿈
-            //기존 이미지 가져오기
-            ArrayList<String> imageUrls = getArguments().getStringArrayList("images");
-            if (imageUrls != null) {
-                for (String url : imageUrls) {
-                    selectedImageUris.add(Uri.parse(url)); // 기존 이미지 URL 추가
+            
+            // PostItem 전체를 받았는지 확인
+            PostItem postItem = getArguments().getParcelable("postItem");
+            if (postItem != null) {
+                // PostItem에서 모든 정보 가져오기
+                List<String> images = postItem.getImages();
+                List<String> imageDays = postItem.getImageDays();
+                List<String> imageThumbnails = postItem.getImageThumbnails();
+                List<Date> imageDates = postItem.getImageDates(); // 정확한 촬영 시각
+                List<Double> imageLatitudes = postItem.getImageLatitudes();
+                List<Double> imageLongitudes = postItem.getImageLongitudes();
+                
+                if (images != null) {
+                    for (int i = 0; i < images.size(); i++) {
+                        PhotoInfo photoInfo = new PhotoInfo(Uri.parse(images.get(i)));
+                        photoInfo.setImageUrl(images.get(i));
+                        if (imageDays != null && i < imageDays.size()) {
+                            photoInfo.setDayNumber(imageDays.get(i));
+                        }
+                        if (imageThumbnails != null && i < imageThumbnails.size()) {
+                            photoInfo.setThumbnailUrl(imageThumbnails.get(i));
+                        }
+                        // 정확한 촬영 시각 설정
+                        if (imageDates != null && i < imageDates.size() && imageDates.get(i) != null) {
+                            photoInfo.setPhotoDate(imageDates.get(i));
+                        }
+                        if (imageLatitudes != null && i < imageLatitudes.size() && imageLatitudes.get(i) != null) {
+                            photoInfo.setLatitude(imageLatitudes.get(i));
+                        }
+                        if (imageLongitudes != null && i < imageLongitudes.size() && imageLongitudes.get(i) != null) {
+                            photoInfo.setLongitude(imageLongitudes.get(i));
+                        }
+                        photoInfoList.add(photoInfo);
+                    }
                 }
-                photoAdapter.notifyDataSetChanged();
+                
+                // 여행 정보 설정
+                if (postItem.getStartDate() != null) {
+                    startDate = postItem.getStartDate();
+                }
+                if (postItem.getTravelDays() > 0) {
+                    travelDays = postItem.getTravelDays();
+                }
+            } else {
+                // 기존 방식 호환성 (이미지 URL만 있는 경우)
+                ArrayList<String> imageUrls = getArguments().getStringArrayList("images");
+                if (imageUrls != null) {
+                    for (String url : imageUrls) {
+                        PhotoInfo photoInfo = new PhotoInfo(Uri.parse(url));
+                        photoInfo.setImageUrl(url);
+                        photoInfo.setDayNumber("1"); // 기본값
+                        photoInfoList.add(photoInfo);
+                    }
+                }
             }
+            
+            sortPhotosByDay();
+            photoAdapter.updateAdapterItems();
         }
         // 6. 버튼 클릭 시 갤러리 실행
         btnAddPhoto.setOnClickListener(v -> {
@@ -123,9 +212,8 @@ public class WriteFragment extends Fragment {
         //삭제 및 변경 기능 구현
         // 1. 삭제 리스너 연결
         photoAdapter.setOnPhotoDeleteListener(position -> {
-            selectedImageUris.remove(position);
-            photoAdapter.notifyItemRemoved(position);
-            photoAdapter.notifyItemRangeChanged(position, selectedImageUris.size());
+            photoInfoList.remove(position);
+            photoAdapter.updateAdapterItems();
         });
 
         // 2. 순서 변경(Drag & Drop) 기능 추가
@@ -139,8 +227,9 @@ public class WriteFragment extends Fragment {
                 int fromPos = viewHolder.getAdapterPosition();
                 int toPos = target.getAdapterPosition();
 
-                java.util.Collections.swap(selectedImageUris, fromPos, toPos);
-                photoAdapter.notifyItemMoved(fromPos, toPos);
+                java.util.Collections.swap(photoInfoList, fromPos, toPos);
+                sortPhotosByDay();
+                photoAdapter.updateAdapterItems();
                 return true;
             }
 
@@ -154,69 +243,398 @@ public class WriteFragment extends Fragment {
         itemTouchHelper.attachToRecyclerView(recyclerView);
         return view;
     }
+    /**
+     * 새로 추가된 사진들을 처리 (EXIF 추출 및 일차 분류)
+     */
+    private void processNewPhotos(List<Uri> uris) {
+        // 신규 작성 시에만 시작일 검증 필요
+        if (editPostId == null && startDate == null) {
+            Toast.makeText(getContext(), "여행 시작일이 설정되지 않았습니다.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        
+        showProgressDialog();
+        
+        executorService.execute(() -> {
+            List<PhotoInfo> newPhotoInfos = new ArrayList<>();
+            List<Uri> rejectedPhotos = new ArrayList<>(); // 시작일보다 이전 사진들
+            
+            for (Uri uri : uris) {
+                PhotoInfo photoInfo = new PhotoInfo(uri);
+                // EXIF 데이터 추출
+                extractExifData(photoInfo);
+                
+                // 신규 작성 시: 시작일보다 이전 사진은 제외
+                if (editPostId == null && startDate != null && photoInfo.getPhotoDate() != null) {
+                    Calendar startCal = Calendar.getInstance();
+                    startCal.setTime(startDate);
+                    startCal.set(Calendar.HOUR_OF_DAY, 0);
+                    startCal.set(Calendar.MINUTE, 0);
+                    startCal.set(Calendar.SECOND, 0);
+                    startCal.set(Calendar.MILLISECOND, 0);
+                    
+                    Calendar photoCal = Calendar.getInstance();
+                    photoCal.setTime(photoInfo.getPhotoDate());
+                    photoCal.set(Calendar.HOUR_OF_DAY, 0);
+                    photoCal.set(Calendar.MINUTE, 0);
+                    photoCal.set(Calendar.SECOND, 0);
+                    photoCal.set(Calendar.MILLISECOND, 0);
+                    
+                    // 시작일보다 이전이면 제외
+                    if (photoCal.getTimeInMillis() < startCal.getTimeInMillis()) {
+                        rejectedPhotos.add(uri);
+                        continue; // 이 사진은 추가하지 않음
+                    }
+                }
+                
+                // 일차 계산
+                calculateDayNumber(photoInfo);
+                newPhotoInfos.add(photoInfo);
+            }
+            
+            // 날짜순으로 정렬
+            Collections.sort(newPhotoInfos, new Comparator<PhotoInfo>() {
+                @Override
+                public int compare(PhotoInfo p1, PhotoInfo p2) {
+                    Date d1 = p1.getPhotoDate();
+                    Date d2 = p2.getPhotoDate();
+                    if (d1 == null && d2 == null) return 0;
+                    if (d1 == null) return 1;
+                    if (d2 == null) return -1;
+                    return d1.compareTo(d2);
+                }
+            });
+            
+            // 메인 스레드에서 UI 업데이트
+            if (getActivity() != null) {
+                getActivity().runOnUiThread(() -> {
+                    if (!newPhotoInfos.isEmpty()) {
+                        photoInfoList.addAll(newPhotoInfos);
+                        // 일차별로 정렬하여 어댑터 업데이트
+                        sortPhotosByDay();
+                        photoAdapter.updateAdapterItems();
+                    }
+                    
+                    // 제외된 사진이 있으면 사용자에게 알림
+                    if (!rejectedPhotos.isEmpty()) {
+                        String message = rejectedPhotos.size() + "장의 사진이 여행 시작일(" + 
+                            formatDate(startDate) + ")보다 이전에 촬영되어 추가되지 않았습니다.";
+                        Toast.makeText(getContext(), message, Toast.LENGTH_LONG).show();
+                    }
+                    
+                    hideProgressDialog();
+                });
+            }
+        });
+    }
+    
+    /**
+     * 날짜를 읽기 쉬운 형식으로 포맷
+     */
+    private String formatDate(Date date) {
+        if (date == null) return "";
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy년 MM월 dd일", Locale.getDefault());
+        return sdf.format(date);
+    }
+    
+    /**
+     * EXIF 데이터 추출 (날짜, 위치 정보)
+     */
+    private void extractExifData(PhotoInfo photoInfo) {
+        try {
+            InputStream inputStream = getContext().getContentResolver().openInputStream(photoInfo.getUri());
+            if (inputStream == null) return;
+            
+            ExifInterface exif = new ExifInterface(inputStream);
+            inputStream.close();
+            
+            // 날짜 추출
+            String dateTime = exif.getAttribute(ExifInterface.TAG_DATETIME);
+            if (dateTime != null) {
+                try {
+                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy:MM:dd HH:mm:ss", Locale.getDefault());
+                    Date photoDate = sdf.parse(dateTime);
+                    photoInfo.setPhotoDate(photoDate);
+                } catch (ParseException e) {
+                    // 날짜 파싱 실패 시 파일 수정 시간 사용
+                    photoInfo.setPhotoDate(new Date());
+                }
+            } else {
+                // EXIF 날짜가 없으면 현재 시간 사용
+                photoInfo.setPhotoDate(new Date());
+            }
+            
+            // 위치 정보 추출
+            float[] latLong = new float[2];
+            if (exif.getLatLong(latLong)) {
+                photoInfo.setLatitude((double)latLong[0]);
+                photoInfo.setLongitude((double)latLong[1]);
+            }
+            
+        } catch (IOException e) {
+            e.printStackTrace();
+            // 오류 발생 시 기본값 설정
+            photoInfo.setPhotoDate(new Date());
+        }
+    }
+    
+    /**
+     * 사진의 일차 계산 (정확한 촬영 시각은 그대로 유지하고, 일차만 계산)
+     */
+    private void calculateDayNumber(PhotoInfo photoInfo) {
+        // 정확한 촬영 시각은 이미 EXIF에서 추출되어 photoInfo.getPhotoDate()에 저장되어 있음
+        // 여기서는 일차만 계산합니다.
+        
+        if (startDate == null || photoInfo.getPhotoDate() == null) {
+            photoInfo.setDayNumber("1"); // 기본값
+            return;
+        }
+        
+        // 시작일을 00:00:00으로 설정
+        Calendar startCal = Calendar.getInstance();
+        startCal.setTime(startDate);
+        startCal.set(Calendar.HOUR_OF_DAY, 0);
+        startCal.set(Calendar.MINUTE, 0);
+        startCal.set(Calendar.SECOND, 0);
+        startCal.set(Calendar.MILLISECOND, 0);
+        
+        // 사진 촬영일을 00:00:00으로 설정 (일차 계산용)
+        Calendar photoCal = Calendar.getInstance();
+        photoCal.setTime(photoInfo.getPhotoDate());
+        photoCal.set(Calendar.HOUR_OF_DAY, 0);
+        photoCal.set(Calendar.MINUTE, 0);
+        photoCal.set(Calendar.SECOND, 0);
+        photoCal.set(Calendar.MILLISECOND, 0);
+        
+        // 일수 차이 계산
+        long diffInMillis = photoCal.getTimeInMillis() - startCal.getTimeInMillis();
+        long diffInDays = diffInMillis / (24 * 60 * 60 * 1000);
+        
+        int dayNumber = (int) diffInDays + 1; // 1일차부터 시작
+        
+        // 여행 일수 범위 내로 제한
+        if (dayNumber < 1) dayNumber = 1;
+        if (dayNumber > travelDays) dayNumber = travelDays;
+        
+        photoInfo.setDayNumber(String.valueOf(dayNumber));
+        
+        // 참고: photoInfo.getPhotoDate()에는 정확한 촬영 시각(날짜+시간)이 그대로 저장되어 있음
+    }
+    
+    /**
+     * 사진을 일차별로 정렬
+     */
+    private void sortPhotosByDay() {
+        Collections.sort(photoInfoList, new Comparator<PhotoInfo>() {
+            @Override
+            public int compare(PhotoInfo p1, PhotoInfo p2) {
+                // 먼저 일차로 정렬
+                int dayCompare = p1.getDayNumber().compareTo(p2.getDayNumber());
+                if (dayCompare != 0) return dayCompare;
+                
+                // 같은 일차면 시간순으로 정렬
+                Date d1 = p1.getPhotoDate();
+                Date d2 = p2.getPhotoDate();
+                if (d1 == null && d2 == null) return 0;
+                if (d1 == null) return 1;
+                if (d2 == null) return -1;
+                return d1.compareTo(d2);
+            }
+        });
+    }
+
     // [업로드 함수]
     private void uploadToFirebase() {
         String title = editTripTitle.getText().toString();
         boolean isPublic = switchIsPublic.isChecked();
         // 제목이 비었거나 사진을 선택 안했으면 중단
-        if (title.isEmpty() || selectedImageUris.isEmpty()) {
+        if (title.isEmpty() || photoInfoList.isEmpty()) {
             Toast.makeText(getContext(), "제목과 사진을 입력해주세요.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        
+        // 시작일자 확인 (신규 작성 시)
+        if (editPostId == null && startDate == null) {
+            Toast.makeText(getContext(), "여행 정보가 없습니다. 다시 시도해주세요.", Toast.LENGTH_SHORT).show();
             return;
         }
         isSaving = true;
         showProgressDialog(); //로딩바 띄우기
+        
+        // 일차별로 정렬
+        sortPhotosByDay();
+        
         // 사진들을 하나씩 Storage에 먼저 올리고, 그 주소(URL)를 리스트에 담습니다.
-        List<String> finalUrls = new ArrayList<>();
-        List<Uri> newImageUris = new ArrayList<>();
+        List<PhotoInfo> photosToUpload = new ArrayList<>();
+        List<PhotoInfo> photosAlreadyUploaded = new ArrayList<>();
 
-        // 3. 사진 구분: 기존 URL(http)은 그대로 두고, 새 로컬 사진만 업로드 리스트에 담음
-        for (Uri uri : selectedImageUris) {
-            if (uri.toString().startsWith("http")) {
-                finalUrls.add(uri.toString());
+        // 사진 구분: 기존 URL(http)은 그대로 두고, 새 로컬 사진만 업로드 리스트에 담음
+        for (PhotoInfo photoInfo : photoInfoList) {
+            if (photoInfo.getImageUrl() != null && photoInfo.getImageUrl().startsWith("http")) {
+                photosAlreadyUploaded.add(photoInfo);
             } else {
-                newImageUris.add(uri);
+                photosToUpload.add(photoInfo);
             }
         }
 
         // 새로 추가된 사진이 없으면 바로 DB 업데이트
-        if (newImageUris.isEmpty()) {
-            savePostInfo(title, finalUrls, isPublic);
+        if (photosToUpload.isEmpty()) {
+            savePostInfoToFirestore(title, isPublic);
             return;
         }
 
-        // 새 사진들만 업로드
-        for (Uri fileUri : newImageUris) {
-            String fileName = "images/" + System.currentTimeMillis() + "_" + fileUri.getLastPathSegment();
+        // 새 사진들 업로드 (원본 + 썸네일)
+        final int[] uploadCount = {0};
+        final int totalCount = photosToUpload.size();
+        
+        for (PhotoInfo photoInfo : photosToUpload) {
+            uploadPhotoWithThumbnail(photoInfo, new UploadCallback() {
+                @Override
+                public void onComplete() {
+                    uploadCount[0]++;
+                    if (uploadCount[0] == totalCount) {
+                        // 모든 사진 업로드 완료
+                        savePostInfoToFirestore(title, isPublic);
+                    }
+                }
+                
+                @Override
+                public void onError(String error) {
+                    hideProgressDialog();
+                    Toast.makeText(getContext(), "이미지 업로드 실패: " + error, Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+    }
+    
+    /**
+     * 사진과 썸네일을 업로드
+     */
+    private void uploadPhotoWithThumbnail(PhotoInfo photoInfo, UploadCallback callback) {
+        try {
+            // 원본 이미지 업로드
+            String fileName = "images/" + System.currentTimeMillis() + "_" + photoInfo.getUri().getLastPathSegment();
             StorageReference ref = storage.getReference().child(fileName);
-            ref.putFile(fileUri)
+            
+            ref.putFile(photoInfo.getUri())
                     .addOnSuccessListener(taskSnapshot -> {
-                        ref.getDownloadUrl().addOnSuccessListener(uri -> {
-                            finalUrls.add(uri.toString());
-                            // 모든 사진(기존+새거) 처리가 완료되면 정보 저장
-                            if (finalUrls.size() == selectedImageUris.size()) {
-                                savePostInfo(title, finalUrls, isPublic);
-                            }
+                        ref.getDownloadUrl().addOnSuccessListener(originalUrl -> {
+                            photoInfo.setImageUrl(originalUrl.toString());
+                            
+                            // 썸네일 생성 및 업로드
+                            createAndUploadThumbnail(photoInfo, callback);
+                        }).addOnFailureListener(e -> {
+                            callback.onError(e.getMessage());
                         });
                     })
                     .addOnFailureListener(e -> {
-                        hideProgressDialog();
-                        Toast.makeText(getContext(), "이미지 업로드 실패", Toast.LENGTH_SHORT).show();
+                        callback.onError(e.getMessage());
                     });
+        } catch (Exception e) {
+            callback.onError(e.getMessage());
         }
     }
+    
+    /**
+     * 썸네일 생성 및 업로드
+     */
+    private void createAndUploadThumbnail(PhotoInfo photoInfo, UploadCallback callback) {
+        try {
+            InputStream inputStream = getContext().getContentResolver().openInputStream(photoInfo.getUri());
+            if (inputStream == null) {
+                // 썸네일 생성 실패 시 원본 URL 사용
+                photoInfo.setThumbnailUrl(photoInfo.getImageUrl());
+                callback.onComplete();
+                return;
+            }
+            
+            Bitmap originalBitmap = BitmapFactory.decodeStream(inputStream);
+            inputStream.close();
+            
+            if (originalBitmap == null) {
+                photoInfo.setThumbnailUrl(photoInfo.getImageUrl());
+                callback.onComplete();
+                return;
+            }
+            
+            // 썸네일 크기 (300x300)
+            int thumbnailSize = 300;
+            Bitmap thumbnail = Bitmap.createScaledBitmap(originalBitmap, thumbnailSize, thumbnailSize, true);
+            
+            // 썸네일을 임시 파일로 저장 후 업로드
+            String thumbnailFileName = "thumbnails/" + System.currentTimeMillis() + "_thumb_" + photoInfo.getUri().getLastPathSegment();
+            StorageReference thumbnailRef = storage.getReference().child(thumbnailFileName);
+            
+            // Bitmap을 byte 배열로 변환
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            thumbnail.compress(Bitmap.CompressFormat.JPEG, 80, baos);
+            byte[] thumbnailData = baos.toByteArray();
+            
+            thumbnailRef.putBytes(thumbnailData)
+                    .addOnSuccessListener(taskSnapshot -> {
+                        thumbnailRef.getDownloadUrl().addOnSuccessListener(thumbnailUrl -> {
+                            photoInfo.setThumbnailUrl(thumbnailUrl.toString());
+                            callback.onComplete();
+                        }).addOnFailureListener(e -> {
+                            // 썸네일 업로드 실패 시 원본 URL 사용
+                            photoInfo.setThumbnailUrl(photoInfo.getImageUrl());
+                            callback.onComplete();
+                        });
+                    })
+                    .addOnFailureListener(e -> {
+                        // 썸네일 업로드 실패 시 원본 URL 사용
+                        photoInfo.setThumbnailUrl(photoInfo.getImageUrl());
+                        callback.onComplete();
+                    });
+        } catch (Exception e) {
+            // 썸네일 생성 실패 시 원본 URL 사용
+            photoInfo.setThumbnailUrl(photoInfo.getImageUrl());
+            callback.onComplete();
+        }
+    }
+    
+    interface UploadCallback {
+        void onComplete();
+        void onError(String error);
+    }
 
-    // Firestore에 제목과 이미지 URL들 저장
-    private void savePostInfo(String title, List<String> imageUrls, boolean isPublic) {
+    // Firestore에 PostItem의 모든 필드 저장
+    private void savePostInfoToFirestore(String title, boolean isPublic) {
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
         String uid = (user != null) ? user.getUid() : "anonymous";
         String email = (user != null) ? user.getEmail() : "익명";
 
+        // PostItem 구조에 맞게 데이터 구성
+        List<String> images = new ArrayList<>();
+        List<String> imageDays = new ArrayList<>();
+        List<String> imageThumbnails = new ArrayList<>();
+        List<Date> imageDates = new ArrayList<>(); // 각 사진의 정확한 촬영 시각
+        List<Double> imageLatitudes = new ArrayList<>();
+        List<Double> imageLongitudes = new ArrayList<>();
+        
+        for (PhotoInfo photoInfo : photoInfoList) {
+            images.add(photoInfo.getImageUrl() != null ? photoInfo.getImageUrl() : "");
+            imageDays.add(photoInfo.getDayNumber() != null ? photoInfo.getDayNumber() : "1");
+            imageThumbnails.add(photoInfo.getThumbnailUrl() != null ? photoInfo.getThumbnailUrl() : photoInfo.getImageUrl());
+            // 정확한 촬영 시각 저장 (EXIF에서 추출한 날짜+시간)
+            imageDates.add(photoInfo.getPhotoDate() != null ? photoInfo.getPhotoDate() : new Date());
+            imageLatitudes.add(photoInfo.getLatitude());
+            imageLongitudes.add(photoInfo.getLongitude());
+        }
+
         Map<String, Object> post = new HashMap<>();
         post.put("title", title);
-        post.put("images", imageUrls); // 사진들의 주소 리스트
+        post.put("images", images);
+        post.put("imageDays", imageDays);
+        post.put("imageThumbnails", imageThumbnails);
+        post.put("imageDates", imageDates); // 정확한 촬영 시각 저장
+        post.put("imageLatitudes", imageLatitudes);
+        post.put("imageLongitudes", imageLongitudes);
+        post.put("startDate", startDate != null ? startDate : new Date());
+        post.put("travelDays", travelDays > 0 ? travelDays : 1);
         post.put("isPublic", isPublic);
-        post.put("userId", uid);      // 사용자의 고유 ID (나중에 본인 글만 필터링할 때 사용)
-        post.put("userEmail", email);  // 화면에 표시할 작성자 이메일
+        post.put("userId", uid);
+        post.put("userEmail", email);
 
         // [수정 모드 확인]
         if (editPostId != null) {
@@ -282,7 +700,7 @@ public class WriteFragment extends Fragment {
         String title = (editTripTitle != null) ? editTripTitle.getText().toString().trim() : "";
         // 1. 제목이 비어있지 않거나
         // 2. 선택된 사진이 하나라도 있다면 '내용이 있음'으로 판단
-        return !title.isEmpty() || (selectedImageUris != null && !selectedImageUris.isEmpty());
+        return !title.isEmpty() || (photoInfoList != null && !photoInfoList.isEmpty());
     }
 }
 

@@ -2,6 +2,7 @@ package com.example.madcamp01;
 
 import android.os.Bundle;
 import android.view.MenuItem;
+import android.view.View;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
@@ -94,8 +95,9 @@ public class MainActivity extends AppCompatActivity {
             private void switchFragment(int itemId) {
                 Fragment selectedFragment = null;
                 if (itemId == R.id.nav_write) {
-                    selectedFragment = new WriteFragment();
-                    setTitle("글쓰기");
+                    // WriteFragment로 이동할 때는 여행 정보 입력 다이얼로그 먼저 표시
+                    showTravelInfoDialog();
+                    return; // 다이얼로그에서 처리하므로 여기서는 리턴
                 } else if (itemId == R.id.nav_my_list) {
                     selectedFragment = new ListFragment();
                     setTitle("내 여행 리스트");
@@ -115,6 +117,53 @@ public class MainActivity extends AppCompatActivity {
                     // 팝업을 통해 이동하는 경우 하단 바 아이콘 상태를 강제로 맞춰줘야 함
                     bottomNav.getMenu().findItem(itemId).setChecked(true);
                 }
+            }
+            
+            // 여행 정보 입력 다이얼로그 (신규 작성 시에만 표시)
+            private void showTravelInfoDialog() {
+                android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(MainActivity.this);
+                View dialogView = getLayoutInflater().inflate(R.layout.dialog_travel_info, null);
+                builder.setView(dialogView);
+                
+                android.widget.EditText editTravelDays = dialogView.findViewById(R.id.edit_travel_days);
+                android.widget.DatePicker datePicker = dialogView.findViewById(R.id.date_picker_start);
+                
+                builder.setTitle("여행 정보 입력")
+                        .setPositiveButton("확인", (dialog, which) -> {
+                            String daysStr = editTravelDays.getText().toString();
+                            if (daysStr.isEmpty()) {
+                                android.widget.Toast.makeText(MainActivity.this, "여행 일수를 입력해주세요.", android.widget.Toast.LENGTH_SHORT).show();
+                                return;
+                            }
+                            
+                            int travelDays = Integer.parseInt(daysStr);
+                            if (travelDays <= 0) {
+                                android.widget.Toast.makeText(MainActivity.this, "여행 일수는 1일 이상이어야 합니다.", android.widget.Toast.LENGTH_SHORT).show();
+                                return;
+                            }
+                            
+                            // 날짜 선택
+                            java.util.Calendar calendar = java.util.Calendar.getInstance();
+                            calendar.set(datePicker.getYear(), datePicker.getMonth(), datePicker.getDayOfMonth());
+                            java.util.Date startDate = calendar.getTime();
+                            
+                            // WriteFragment 생성 및 데이터 전달
+                            WriteFragment writeFragment = new WriteFragment();
+                            Bundle args = new Bundle();
+                            args.putInt("travelDays", travelDays);
+                            args.putLong("startDate", startDate.getTime());
+                            writeFragment.setArguments(args);
+                            
+                            getSupportFragmentManager().popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
+                            getSupportFragmentManager().beginTransaction()
+                                    .replace(R.id.fragment_container, writeFragment)
+                                    .commit();
+                            setTitle("글쓰기");
+                            bottomNav.getMenu().findItem(R.id.nav_write).setChecked(true);
+                        })
+                        .setNegativeButton("취소", null);
+                
+                builder.create().show();
             }
         });
         // 뒤로 가기 버튼 클릭 시 확인 팝업 띄우기

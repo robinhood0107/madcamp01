@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="#E3F2FD">
+
+    <TextView
+        android:id="@+id/tv_day_number"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="1일차"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="#1976D2" />
+
+</LinearLayout>

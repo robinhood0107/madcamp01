@@ -172,7 +172,8 @@ public class GalleryFragment extends Fragment {
         }
         db.collection("TravelPosts").document(documentId).delete()
                 .addOnSuccessListener(aVoid -> {
-                    deletePostImages(item.getImages());
+                    // 원본 이미지와 썸네일 모두 삭제
+                    deletePostImages(item.getImages(), item.getImageThumbnails());
                     Toast.makeText(getContext(), "게시물이 삭제되었습니다.", Toast.LENGTH_SHORT).show();
                     loadMoreData(true);
                 })
@@ -182,12 +183,38 @@ public class GalleryFragment extends Fragment {
                 });
     }
 
-    private void deletePostImages(List<String> imageUrls) {
-        if (imageUrls == null || imageUrls.isEmpty()) return;
-        for (String imageUrl : imageUrls) {
-            StorageReference photoRef = storage.getReferenceFromUrl(imageUrl);
-            photoRef.delete().addOnFailureListener(e ->
-                    Log.e("FirebaseStorage", "Failed to delete image: " + imageUrl, e));
+    /**
+     * Storage에서 원본 이미지와 썸네일 모두 삭제
+     */
+    private void deletePostImages(List<String> imageUrls, List<String> thumbnailUrls) {
+        // 원본 이미지 삭제
+        if (imageUrls != null && !imageUrls.isEmpty()) {
+            for (String imageUrl : imageUrls) {
+                if (imageUrl != null && !imageUrl.isEmpty() && imageUrl.startsWith("http")) {
+                    try {
+                        StorageReference photoRef = storage.getReferenceFromUrl(imageUrl);
+                        photoRef.delete().addOnFailureListener(e ->
+                                Log.e("FirebaseStorage", "Failed to delete image: " + imageUrl, e));
+                    } catch (Exception e) {
+                        Log.e("FirebaseStorage", "Error getting reference for image: " + imageUrl, e);
+                    }
+                }
+            }
+        }
+        
+        // 썸네일 삭제
+        if (thumbnailUrls != null && !thumbnailUrls.isEmpty()) {
+            for (String thumbnailUrl : thumbnailUrls) {
+                if (thumbnailUrl != null && !thumbnailUrl.isEmpty() && thumbnailUrl.startsWith("http")) {
+                    try {
+                        StorageReference thumbnailRef = storage.getReferenceFromUrl(thumbnailUrl);
+                        thumbnailRef.delete().addOnFailureListener(e ->
+                                Log.e("FirebaseStorage", "Failed to delete thumbnail: " + thumbnailUrl, e));
+                    } catch (Exception e) {
+                        Log.e("FirebaseStorage", "Error getting reference for thumbnail: " + thumbnailUrl, e);
+                    }
+                }
+            }
         }
     }
 
