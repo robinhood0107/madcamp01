@@ -64,21 +64,6 @@ public class WriteFragment extends Fragment {
         );
         // Firebase Authentication 인스턴스 초기화
         auth = FirebaseAuth.getInstance();
-
-        // 익명으로 로그인 시도
-        auth.signInAnonymously()
-                .addOnCompleteListener(task -> {
-                    if (task.isSuccessful()) {
-                        // 로그인 성공
-                        FirebaseUser user = auth.getCurrentUser();
-                        android.util.Log.d("FIREBASE_AUTH", "Anonymous login successful: " + user.getUid());
-                    } else {
-                        // 로그인 실패
-                        android.util.Log.e("FIREBASE_AUTH", "Anonymous login failed: " + task.getException());
-                        Toast.makeText(getContext(), "Authentication failed.", Toast.LENGTH_SHORT).show();
-                    }
-                });
-
     }
 
     @Override
@@ -152,21 +137,25 @@ public class WriteFragment extends Fragment {
 
     // Firestore에 제목과 이미지 URL들 저장
     private void savePostInfo(String title, List<String> imageUrls, boolean isPublic) {
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        String uid = (user != null) ? user.getUid() : "anonymous";
+        String email = (user != null) ? user.getEmail() : "익명";
+
         Map<String, Object> post = new HashMap<>();
         post.put("title", title);
         post.put("images", imageUrls); // 사진들의 주소 리스트
         post.put("isPublic", isPublic);
         post.put("createdAt", FieldValue.serverTimestamp());
+        post.put("userId", uid);      // 사용자의 고유 ID (나중에 본인 글만 필터링할 때 사용)
+        post.put("userEmail", email);  // 화면에 표시할 작성자 이메일
 
         db.collection("TravelPosts")
                 .add(post)
                 .addOnSuccessListener(documentReference -> {
                     hideProgressDialog();
                     Toast.makeText(getContext(), "여행 기록이 성공적으로 저장되었습니다!", Toast.LENGTH_SHORT).show();
-                    if (getActivity() != null) {
+                    if (getActivity() != null) { //메인 리스트 탭으로 이동
                         BottomNavigationView bottomNav = getActivity().findViewById(R.id.bottom_navigation);
-                        // '내 여행 리스트' 아이템 ID로 선택 변경
-                        // (MainActivity에서 사용하신 R.id.nav_my_list와 동일해야 합니다)
                         bottomNav.setSelectedItemId(R.id.nav_my_list);
                     }
                 })
