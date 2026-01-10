@@ -22,6 +22,7 @@ import com.google.firebase.firestore.Query;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class ListFragment extends Fragment {
@@ -88,7 +89,24 @@ public class ListFragment extends Fragment {
         popup.setOnMenuItemClickListener(menuItem -> {
             int itemId = menuItem.getItemId();
             if (itemId == R.id.menu_edit) {
-                Toast.makeText(getContext(), "수정 기능은 준비 중입니다.", Toast.LENGTH_SHORT).show();
+                // 1. WriteFragment 인스턴스 생성
+                WriteFragment writeFragment = new WriteFragment();
+
+                // 2. 수정을 위한 데이터 꾸러미(Bundle) 생성 및 전달
+                Bundle args = new Bundle();
+                args.putString("postId", item.getDocumentId()); // 문서 ID
+                args.putString("title", item.getTitle());       // 기존 제목
+                args.putStringArrayList("images", new ArrayList<>(item.getImages())); // 기존 이미지 리스트
+                args.putBoolean("isPublic", item.getIsPublic());   // 공개 여부
+
+                writeFragment.setArguments(args);
+
+                // 3. WriteFragment로 화면 전환
+                requireActivity().getSupportFragmentManager().beginTransaction()
+                        .replace(R.id.fragment_container, writeFragment)
+                        .addToBackStack(null) // 뒤로가기 가능하게 설정
+                        .commit();
+
                 return true;
             } else if (itemId == R.id.menu_delete) {
                 showDeleteConfirmationDialog(item);

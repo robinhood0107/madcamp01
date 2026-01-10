@@ -22,6 +22,7 @@ import com.google.firebase.appcheck.FirebaseAppCheck;
 import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory;
 import com.google.firebase.firestore.FieldValue; // 시간 저장용
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.storage.FirebaseStorage; // 스토리지용
 import com.google.firebase.storage.StorageReference; // 스토리지 참조용
 
@@ -47,9 +48,15 @@ public class WriteFragment extends Fragment {
     private FirebaseAuth auth; // Firebase Authentication 인스턴스 추가
     private androidx.appcompat.app.AlertDialog progressDialog; // 로딩바용
     private com.google.android.material.materialswitch.MaterialSwitch switchIsPublic; // 공개 비공개 버튼
+    private String editPostId = null;// 수정 기능
+
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // 수정 모드 체크
+        if (getArguments() != null) {
+            editPostId = getArguments().getString("postId");
+        }
 
         // 2. 사진 선택 결과 처리기 등록
         getMultipleContents = registerForActivityResult(
@@ -87,7 +94,20 @@ public class WriteFragment extends Fragment {
         // 어댑터 연결 (보관함과 화면을 연결)
         photoAdapter = new PhotoAdapter(selectedImageUris, getContext());
         recyclerView.setAdapter(photoAdapter);
-
+        // 수정 모드 시 기존 게시물 정보 가져오기
+        if (editPostId != null) {
+            editTripTitle.setText(getArguments().getString("title"));
+            switchIsPublic.setChecked(getArguments().getBoolean("isPublic"));
+            btnSave.setText("수정 완료"); //저장하기 버튼을 수정하기로 바꿈
+            //기존 이미지 가져오기
+            ArrayList<String> imageUrls = getArguments().getStringArrayList("images");
+            if (imageUrls != null) {
+                for (String url : imageUrls) {
+                    selectedImageUris.add(Uri.parse(url)); // 기존 이미지 URL 추가
+                }
+                photoAdapter.notifyDataSetChanged();
+            }
+        }
         // 6. 버튼 클릭 시 갤러리 실행
         btnAddPhoto.setOnClickListener(v -> {
             getMultipleContents.launch("image/*"); // 이미지 파일만 선택하도록 실행
@@ -112,25 +132,41 @@ public class WriteFragment extends Fragment {
         }
         showProgressDialog(); //로딩바 띄우기
         // 사진들을 하나씩 Storage에 먼저 올리고, 그 주소(URL)를 리스트에 담습니다.
-        List<String> uploadedUrls = new ArrayList<>();
+        List<String> finalUrls = new ArrayList<>();
+        List<Uri> newImageUris = new ArrayList<>();
 
-        for (Uri fileUri : selectedImageUris) {
+        // 3. 사진 구분: 기존 URL(http)은 그대로 두고, 새 로컬 사진만 업로드 리스트에 담음
+        for (Uri uri : selectedImageUris) {
+            if (uri.toString().startsWith("http")) {
+                finalUrls.add(uri.toString());
+            } else {
+                newImageUris.add(uri);
+            }
+        }
+
+        // 새로 추가된 사진이 없으면 바로 DB 업데이트
+        if (newImageUris.isEmpty()) {
+            savePostInfo(title, finalUrls, isPublic);
+            return;
+        }
+
+        // 새 사진들만 업로드
+        for (Uri fileUri : newImageUris) {
             String fileName = "images/" + System.currentTimeMillis() + "_" + fileUri.getLastPathSegment();
             StorageReference ref = storage.getReference().child(fileName);
             ref.putFile(fileUri)
                     .addOnSuccessListener(taskSnapshot -> {
                         ref.getDownloadUrl().addOnSuccessListener(uri -> {
-                            uploadedUrls.add(uri.toString());
-                            if (uploadedUrls.size() == selectedImageUris.size()) {
-                                savePostInfo(title, uploadedUrls, isPublic);
+                            finalUrls.add(uri.toString());
+                            // 모든 사진(기존+새거) 처리가 완료되면 정보 저장
+                            if (finalUrls.size() == selectedImageUris.size()) {
+                                savePostInfo(title, finalUrls, isPublic);
                             }
                         });
                     })
                     .addOnFailureListener(e -> {
                         hideProgressDialog();
-                        Toast.makeText(getContext(), "저장 실패", Toast.LENGTH_SHORT).show();
-                        android.util.Log.e("FIREBASE_TEST", "업로드 실패 원인: " + e.getMessage());
-                        e.printStackTrace();
+                        Toast.makeText(getContext(), "이미지 업로드 실패", Toast.LENGTH_SHORT).show();
                     });
         }
     }
@@ -145,25 +181,48 @@ public class WriteFragment extends Fragment {
         post.put("title", title);
         post.put("images", imageUrls); // 사진들의 주소 리스트
         post.put("isPublic", isPublic);
-        post.put("createdAt", FieldValue.serverTimestamp());
         post.put("userId", uid);      // 사용자의 고유 ID (나중에 본인 글만 필터링할 때 사용)
         post.put("userEmail", email);  // 화면에 표시할 작성자 이메일
 
-        db.collection("TravelPosts")
-                .add(post)
-                .addOnSuccessListener(documentReference -> {
-                    hideProgressDialog();
-                    Toast.makeText(getContext(), "여행 기록이 성공적으로 저장되었습니다!", Toast.LENGTH_SHORT).show();
-                    if (getActivity() != null) { //메인 리스트 탭으로 이동
-                        BottomNavigationView bottomNav = getActivity().findViewById(R.id.bottom_navigation);
-                        bottomNav.setSelectedItemId(R.id.nav_my_list);
-                    }
-                })
-                .addOnFailureListener(e -> {
-                    hideProgressDialog();
-                    Toast.makeText(getContext(), "저장 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                });
+        // [수정 모드 확인]
+        if (editPostId != null) {
+            // 수정 시에는 기존 문서를 찾아 덮어씌웁니다.
+            db.collection("TravelPosts").document(editPostId)
+                    .set(post, SetOptions.merge()) // 기존 필드를 유지하면서 수정된 내용만 덮어씀
+                    .addOnSuccessListener(aVoid -> {
+                        hideProgressDialog();
+                        Toast.makeText(getContext(), "여행 기록이 수정되었습니다!", Toast.LENGTH_SHORT).show();
+                        goToMainList();
+                    })
+                    .addOnFailureListener(e -> {
+                        hideProgressDialog();
+                        Toast.makeText(getContext(), "수정 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    });
+        } else {
+            // 신규 작성 시에는 새로운 문서를 추가합니다.
+            post.put("createdAt", FieldValue.serverTimestamp()); // 신규일 때만 시간 저장
+            db.collection("TravelPosts")
+                    .add(post)
+                    .addOnSuccessListener(documentReference -> {
+                        hideProgressDialog();
+                        Toast.makeText(getContext(), "여행 기록이 성공적으로 저장되었습니다!", Toast.LENGTH_SHORT).show();
+                        goToMainList();
+                    })
+                    .addOnFailureListener(e -> {
+                        hideProgressDialog();
+                        Toast.makeText(getContext(), "저장 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    });
+        }
     }
+
+    // 메인 리스트 탭으로 이동하는 공통 함수
+    private void goToMainList() {
+        if (getActivity() != null) {
+            BottomNavigationView bottomNav = getActivity().findViewById(R.id.bottom_navigation);
+            bottomNav.setSelectedItemId(R.id.nav_my_list);
+        }
+    }
+
     private void showProgressDialog() {
         if (progressDialog == null) {
             // AlertDialog 생성

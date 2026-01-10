@@ -6,6 +6,7 @@ import android.view.MenuItem;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
@@ -18,6 +19,29 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
+        // 프래그먼트 변경 시 하단 바 상태를 동기화하기 위한 리스너
+        getSupportFragmentManager().addOnBackStackChangedListener(new FragmentManager.OnBackStackChangedListener() {
+            @Override
+            public void onBackStackChanged() {
+                Fragment currentFragment = getSupportFragmentManager().findFragmentById(R.id.fragment_container);
+
+                if (currentFragment instanceof WriteFragment) {
+                    bottomNav.getMenu().findItem(R.id.nav_write).setChecked(true);
+                    setTitle("글쓰기");
+                } else if (currentFragment instanceof ListFragment) {
+                    bottomNav.getMenu().findItem(R.id.nav_my_list).setChecked(true);
+                    setTitle("내 여행 리스트");
+                } else if (currentFragment instanceof GalleryFragment) {
+                    // [추가] 현재 화면이 GalleryFragment(SNS 게시판)인 경우 처리
+                    bottomNav.getMenu().findItem(R.id.nav_sns_gallery).setChecked(true);
+                    setTitle("갤러리");
+                } else if (currentFragment instanceof MypageFragment) {
+                    // [추가] 현재 화면이 MypageFragment인 경우 처리
+                    bottomNav.getMenu().findItem(R.id.nav_my_page).setChecked(true);
+                    setTitle("마이페이지");
+                }
+            }
+        });
 
         // 처음 앱 켰을 때 보여줄 화면 및 제목, 네비게이션 상태 설정
         if (savedInstanceState == null) {
@@ -34,7 +58,10 @@ public class MainActivity extends AppCompatActivity {
             public boolean onNavigationItemSelected(@NonNull MenuItem item) {
                 Fragment selectedFragment = null;
                 int itemId = item.getItemId();
-
+                // 현재 선택된 탭을 다시 누른 경우 아무것도 하지 않음
+                if (itemId == bottomNav.getSelectedItemId()) {
+                    return false;
+                }
                 if (itemId == R.id.nav_write) {
                     // 1번 탭: 글쓰기
                     selectedFragment = new WriteFragment();

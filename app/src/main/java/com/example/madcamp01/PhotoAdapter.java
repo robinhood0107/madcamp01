@@ -10,6 +10,8 @@ import android.widget.ImageView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
+
 import java.util.List;
 
 // 1. RecyclerView.Adapter를 상속받을 때 <PhotoAdapter.PhotoViewHolder>를 정확히 명시해야 합니다.
@@ -39,7 +41,9 @@ public class PhotoAdapter extends RecyclerView.Adapter<PhotoAdapter.PhotoViewHol
         Uri uri = uriList.get(position);
 
         // 이미지 주소를 ImageView에 세팅
-        holder.ivPhoto.setImageURI(uri);
+        Glide.with(context) // mContext -> context로 변경
+                .load(uri)  // imageUri -> uri로 변경
+                .into(holder.ivPhoto); // holder.imageView -> holder.ivPhoto로 변경
     }
 
     // [필수 구현 3] 전체 아이템 개수를 알려주는 메서드
