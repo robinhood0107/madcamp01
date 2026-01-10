@@ -17,6 +17,8 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
@@ -105,8 +107,22 @@ public class GalleryFragment extends Fragment {
 
     private void showPopupMenu(View anchorView, PostItem item) {
         if (getContext() == null) return;
+        // 현재 로그인한 사용자 정보 가져오기
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        String currentUserId = (currentUser != null) ? currentUser.getUid() : "";
+
         PopupMenu popup = new PopupMenu(getContext(), anchorView);
         popup.getMenuInflater().inflate(R.menu.post_context_menu, popup.getMenu());
+
+        // 권한 확인: 게시물의 userId와 현재 로그인한 UID 비교
+        boolean isOwner = item.getUserId() != null && item.getUserId().equals(currentUserId);
+
+        // 본인이 아니면 '수정' 및 '삭제' 메뉴 숨기기
+        if (!isOwner) {
+            popup.getMenu().findItem(R.id.menu_edit).setVisible(false);
+            popup.getMenu().findItem(R.id.menu_delete).setVisible(false);
+        }
+
         popup.setOnMenuItemClickListener(menuItem -> {
             int itemId = menuItem.getItemId();
             if (itemId == R.id.menu_edit) {
