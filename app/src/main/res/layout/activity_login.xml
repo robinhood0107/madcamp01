@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="30dp"
+    android:gravity="center"
+    android:background="#FFFFFF">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="여행 기록장"
+        android:textSize="28sp"
+        android:textStyle="bold"
+        android:textColor="#333333"
+        android:layout_marginBottom="40dp"/>
+
+    <EditText
+        android:id="@+id/edit_login_email"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:hint="이메일 (example@test.com)"
+        android:inputType="textEmailAddress"
+        android:layout_marginBottom="10dp"/>
+
+    <EditText
+        android:id="@+id/edit_login_password"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:hint="비밀번호"
+        android:inputType="textPassword"
+        android:layout_marginBottom="15dp" />
+    <EditText
+        android:id="@+id/edit_login_password_confirm"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:hint="비밀번호 확인"
+        android:inputType="textPassword"
+        android:visibility="gone"
+        android:layout_marginBottom="15dp" />
+    <Button
+        android:id="@+id/btn_main_action"
+        android:layout_width="match_parent"
+        android:layout_height="55dp"
+        android:layout_marginTop="10dp"
+        android:text="로그인" />
+
+    <TextView
+        android:id="@+id/text_toggle_mode"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="계정이 없으신가요? 회원가입"
+        android:textColor="#757575"
+        android:padding="10dp" />
+
+</LinearLayout>
