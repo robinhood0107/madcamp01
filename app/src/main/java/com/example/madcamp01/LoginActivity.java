@@ -26,15 +26,12 @@ public class LoginActivity extends AppCompatActivity {
     public void onStart() {
         super.onStart();
         FirebaseUser currentUser = auth.getCurrentUser();
-        /*
         if (currentUser != null) {
             // 이미 로그인되어 있다면 바로 메인으로 이동
             startActivity(new Intent(LoginActivity.this, MainActivity.class));
             finish();
             return;
         }
-
-         */
     }
     @Override
     protected void onCreate(Bundle savedInstanceState) {

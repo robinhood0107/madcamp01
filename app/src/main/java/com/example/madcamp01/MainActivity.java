@@ -47,6 +47,10 @@ public class MainActivity extends AppCompatActivity {
                     // 3번 탭: 전체 갤러리 (SNS처럼 전체)
                     selectedFragment = new GalleryFragment();
                     setTitle("갤러리"); // 제목 변경
+                } else if (itemId == R.id.nav_my_page) {
+                    // 4번 탭: 마이페이지
+                    selectedFragment = new MypageFragment();
+                    setTitle("갤러리"); // 제목 변경
                 }
 
                 if (selectedFragment != null) {
