@@ -49,8 +49,10 @@ public class ListFragment extends Fragment {
         storage = FirebaseStorage.getInstance();
         recyclerView = view.findViewById(R.id.recyclerView);
         loadingProgressBar = view.findViewById(R.id.loadingProgressBar);
-        recyclerView.setLayoutManager(new GridLayoutManager(getContext(), 2));
-        adapter = new PostAdapter(getContext());
+
+        recyclerView.setLayoutManager(new GridLayoutManager(view.getContext(), 2));
+        // [수정] 어댑터 생성 시 isMyList를 true로 전달
+        adapter = new PostAdapter(view.getContext(), true);
         recyclerView.setAdapter(adapter);
 
         adapter.setOnItemClickListener(item -> {
@@ -157,7 +159,7 @@ public class ListFragment extends Fragment {
                 adapter.addPostList(newPosts);
                 lastVisible = queryDocumentSnapshots.getDocuments().get(queryDocumentSnapshots.size() - 1);
             } else if (lastVisible == null) {
-                // 첫 로드 시 데이터가 없는 경우, 메시지를 띄우지 않고 그냥 비워둡니다.
+                // 첫 로드인데 게시물이 없는 경우
             }
             isLoading = false;
         }).addOnFailureListener(e -> {

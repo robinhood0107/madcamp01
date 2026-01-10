@@ -2,4 +2,8 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- 상태 표시용 색상 추가 -->
+    <color name="public_status_color">#4CAF50</color> <!-- Green -->
+    <color name="private_status_color">#888888</color> <!-- Gray -->
 </resources>
