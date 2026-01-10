@@ -25,6 +25,7 @@ public class PostItem implements Parcelable {
     private List<String> images;          // 원본 이미지 URL 리스트
     private List<String> imageDays;       // 일차 정보 ("1", "2"...)
     private List<String> imageThumbnails; // [변경] 각 사진별 썸네일 URL 리스트
+    private List<Date> imageDates;        // [신규] 각 사진별 정확한 촬영 시각 리스트
     
     private List<Double> imageLatitudes;  // [변경] 각 사진별 위도 리스트 (없으면 null)
     private List<Double> imageLongitudes; // [변경] 각 사진별 경도 리스트 (없으면 null)
@@ -67,6 +68,9 @@ public class PostItem implements Parcelable {
     public List<String> getImageThumbnails() { return imageThumbnails; }
     public void setImageThumbnails(List<String> imageThumbnails) { this.imageThumbnails = imageThumbnails; }
 
+    public List<Date> getImageDates() { return imageDates; }
+    public void setImageDates(List<Date> imageDates) { this.imageDates = imageDates; }
+
     public List<Double> getImageLatitudes() { return imageLatitudes; }
     public void setImageLatitudes(List<Double> imageLatitudes) { this.imageLatitudes = imageLatitudes; }
 
@@ -103,6 +107,9 @@ public class PostItem implements Parcelable {
         imageDays = in.createStringArrayList();
         imageThumbnails = in.createStringArrayList(); // [신규]
 
+        // Date List 읽기 (Serializable로 처리)
+        imageDates = (ArrayList<Date>) in.readSerializable();
+
         // Double List 읽기 (Serializable로 처리)
         // Firestore에서 가져온 List<Double>을 Parcelable로 넘길 때 가장 안전한 방법입니다.
         imageLatitudes = (ArrayList<Double>) in.readSerializable();
@@ -131,6 +138,9 @@ public class PostItem implements Parcelable {
         dest.writeStringList(images);
         dest.writeStringList(imageDays);
         dest.writeStringList(imageThumbnails); // [신규]
+        
+        // Date List 쓰기 (Serializable로 처리)
+        dest.writeSerializable((ArrayList<Date>) imageDates);
         
         // Double List 쓰기 (Serializable로 처리)
         // ArrayList는 Serializable 인터페이스를 구현하고 있으므로 통째로 넘길 수 있습니다.

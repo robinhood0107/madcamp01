@@ -6,19 +6,26 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 
+import java.util.ArrayList;
 import java.util.List;
 
-// 1. RecyclerView.Adapter를 상속받을 때 <PhotoAdapter.PhotoViewHolder>를 정확히 명시해야 합니다.
-public class PhotoAdapter extends RecyclerView.Adapter<PhotoAdapter.PhotoViewHolder> {
+// 일차별로 그룹화된 사진 어댑터
+public class PhotoAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
-    private List<Uri> uriList;
+    private static final int TYPE_HEADER = 0;
+    private static final int TYPE_PHOTO = 1;
+
+    private List<PhotoInfo> photoInfoList;
+    private List<AdapterItem> adapterItems; // 헤더와 사진을 함께 담는 리스트
     private Context context;
+    
     // 삭제 클릭 리스너 인터페이스
     public interface OnPhotoDeleteListener {
         void onDelete(int position);
@@ -27,55 +34,123 @@ public class PhotoAdapter extends RecyclerView.Adapter<PhotoAdapter.PhotoViewHol
     public void setOnPhotoDeleteListener(OnPhotoDeleteListener listener) {
         this.deleteListener = listener;
     }
+    
+    // 어댑터 아이템 (헤더 또는 사진)
+    private static class AdapterItem {
+        int type;
+        String dayNumber; // 헤더인 경우
+        PhotoInfo photoInfo; // 사진인 경우
+        
+        AdapterItem(int type, String dayNumber, PhotoInfo photoInfo) {
+            this.type = type;
+            this.dayNumber = dayNumber;
+            this.photoInfo = photoInfo;
+        }
+    }
+    
     // 생성자
-    public PhotoAdapter(List<Uri> uriList, Context context) {
-        this.uriList = uriList;
+    public PhotoAdapter(List<PhotoInfo> photoInfoList, Context context) {
+        this.photoInfoList = photoInfoList;
         this.context = context;
+        this.adapterItems = new ArrayList<>();
+        updateAdapterItems();
+    }
+    
+    // PhotoInfo 리스트가 변경되면 어댑터 아이템 업데이트
+    public void updateAdapterItems() {
+        adapterItems.clear();
+        if (photoInfoList == null || photoInfoList.isEmpty()) {
+            notifyDataSetChanged();
+            return;
+        }
+        
+        String currentDay = null;
+        for (PhotoInfo photoInfo : photoInfoList) {
+            String dayNumber = photoInfo.getDayNumber() != null ? photoInfo.getDayNumber() : "1";
+            
+            // 새로운 일차가 시작되면 헤더 추가
+            if (!dayNumber.equals(currentDay)) {
+                adapterItems.add(new AdapterItem(TYPE_HEADER, dayNumber, null));
+                currentDay = dayNumber;
+            }
+            
+            // 사진 추가
+            adapterItems.add(new AdapterItem(TYPE_PHOTO, null, photoInfo));
+        }
+        notifyDataSetChanged();
     }
 
-    // [필수 구현 1] 아이템 하나를 담을 틀(ViewHolder)을 만드는 메서드
+    @Override
+    public int getItemViewType(int position) {
+        return adapterItems.get(position).type;
+    }
+
     @NonNull
     @Override
-    public PhotoViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_photo, parent, false);
-        return new PhotoViewHolder(view);
+    public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        if (viewType == TYPE_HEADER) {
+            View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_day_header, parent, false);
+            return new DayHeaderViewHolder(view);
+        } else {
+            View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_photo, parent, false);
+            return new PhotoViewHolder(view);
+        }
     }
 
-    // [필수 구현 2] 실제로 사진 데이터를 화면에 보여주는 메서드
-    // 여기서 인자 형식이 @NonNull PhotoViewHolder holder, int position 이어야 합니다.
     @Override
-    public void onBindViewHolder(@NonNull PhotoViewHolder holder, int position) {
-        Uri uri = uriList.get(position);
-
-        // 이미지 주소를 ImageView에 세팅
-        Glide.with(context)
-                .load(uri)
-                .into(holder.ivPhoto);
-        //사진 클릭시 삭제
-        holder.btnDeletePhoto.setOnClickListener(v -> {
-            if (deleteListener != null) {
-                // 정확한 현재 위치를 파악하기 위해 holder.getAdapterPosition() 권장
-                int currentPos = holder.getAdapterPosition();
-                if (currentPos != RecyclerView.NO_POSITION) {
-                    deleteListener.onDelete(currentPos);
-                }
+    public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
+        AdapterItem item = adapterItems.get(position);
+        
+        if (item.type == TYPE_HEADER) {
+            DayHeaderViewHolder headerHolder = (DayHeaderViewHolder) holder;
+            headerHolder.tvDayNumber.setText(item.dayNumber + "일차");
+        } else {
+            PhotoViewHolder photoHolder = (PhotoViewHolder) holder;
+            PhotoInfo photoInfo = item.photoInfo;
+            
+            // 이미지 로드 (URI 또는 URL)
+            Uri uri = photoInfo.getUri();
+            if (photoInfo.getImageUrl() != null && photoInfo.getImageUrl().startsWith("http")) {
+                Glide.with(context).load(photoInfo.getImageUrl()).into(photoHolder.ivPhoto);
+            } else if (uri != null) {
+                Glide.with(context).load(uri).into(photoHolder.ivPhoto);
             }
-        });
+            
+            // 사진 클릭시 삭제
+            photoHolder.btnDeletePhoto.setOnClickListener(v -> {
+                if (deleteListener != null) {
+                    // 실제 PhotoInfo 리스트에서의 위치 찾기
+                    int actualPosition = photoInfoList.indexOf(photoInfo);
+                    if (actualPosition != -1) {
+                        deleteListener.onDelete(actualPosition);
+                    }
+                }
+            });
+        }
     }
 
-    // [필수 구현 3] 전체 아이템 개수를 알려주는 메서드
     @Override
     public int getItemCount() {
-        return uriList != null ? uriList.size() : 0;
+        return adapterItems != null ? adapterItems.size() : 0;
     }
 
-    // 사진 한 장을 붙잡고 있을 바구니(ViewHolder) 클래스
-    public static class PhotoViewHolder extends RecyclerView.ViewHolder {
+    // 일차 헤더 ViewHolder
+    static class DayHeaderViewHolder extends RecyclerView.ViewHolder {
+        TextView tvDayNumber;
+        
+        DayHeaderViewHolder(@NonNull View itemView) {
+            super(itemView);
+            tvDayNumber = itemView.findViewById(R.id.tv_day_number);
+        }
+    }
+
+    // 사진 ViewHolder
+    static class PhotoViewHolder extends RecyclerView.ViewHolder {
         ImageView ivPhoto;
         ImageView btnDeletePhoto;
-        public PhotoViewHolder(@NonNull View itemView) {
+        
+        PhotoViewHolder(@NonNull View itemView) {
             super(itemView);
-            // item_photo.xml에 있는 ImageView와 연결
             ivPhoto = itemView.findViewById(R.id.iv_photo);
             btnDeletePhoto = itemView.findViewById(R.id.btn_delete_photo);
         }
