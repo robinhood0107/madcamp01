@@ -19,11 +19,13 @@ public class MainActivity extends AppCompatActivity {
 
         BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
 
-        // 처음 앱 켰을 때 보여줄 화면 설정 (임시용으로 리스트 화면을 먼저 보여줌)
+        // 처음 앱 켰을 때 보여줄 화면 및 제목, 네비게이션 상태 설정
         if (savedInstanceState == null) {
             getSupportFragmentManager().beginTransaction()
                     .replace(R.id.fragment_container, new ListFragment())
                     .commit();
+            setTitle("내 여행 리스트"); // 초기 타이틀 설정
+            bottomNav.setSelectedItemId(R.id.nav_my_list); // 초기 탭 선택
         }
 
         // 탭 클릭 이벤트 리스너
@@ -36,12 +38,15 @@ public class MainActivity extends AppCompatActivity {
                 if (itemId == R.id.nav_write) {
                     // 1번 탭: 글쓰기
                     selectedFragment = new WriteFragment();
+                    setTitle("글쓰기"); // 제목 변경
                 } else if (itemId == R.id.nav_my_list) {
                     // 2번 탭: 내 여행 리스트 (기존 ListFragment)
                     selectedFragment = new ListFragment();
+                    setTitle("내 여행 리스트"); // 제목 변경
                 } else if (itemId == R.id.nav_sns_gallery) {
                     // 3번 탭: 전체 갤러리 (SNS처럼 전체)
                     selectedFragment = new GalleryFragment();
+                    setTitle("갤러리"); // 제목 변경
                 }
 
                 if (selectedFragment != null) {
