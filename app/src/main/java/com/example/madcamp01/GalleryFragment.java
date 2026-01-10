@@ -221,7 +221,7 @@ public class GalleryFragment extends Fragment {
 
         // --- [수정] GalleryFragment의 핵심 로직: 필터링 및 정렬 --- //
         Query query = db.collection("TravelPosts")
-                .whereEqualTo("public", true) // 조건 1: isPublic이 true인 게시물만 필터링
+                .whereEqualTo("isPublic", true) // 조건 1: isPublic이 true인 게시물만 필터링
                 .orderBy("createdAt", sortDirection);     // 조건 2: 설정된 방향(최신/오래된)으로 정렬
 
         if (lastVisible != null) {
