@@ -9,32 +9,31 @@ import com.google.firebase.firestore.ServerTimestamp;
 import java.util.Date;
 import java.util.List;
 
-//데이터 모델(PostItem)
-//게시물 하나에 들어갈 이미지 주소와 제목 그리고 게시글에 대한 생성자
 public class PostItem implements Parcelable {
     @DocumentId
     private String documentId;
-
-
-    private List<String> images;
+    private String userId;
+    private String userEmail; // [추가] 사용자 이메일 필드
     private String title;
+    private List<String> images;
+    private boolean isPublic;
 
-    @ServerTimestamp // Firestore 타임스탬프 매핑용 어노테이션
-    private Date createdAt;      // 타임스탬프 대응
+    @ServerTimestamp
+    private Date createdAt;
 
-    //firebase에서는 빈 생성자가 없을 경우 에러가 발생하기 때문에 꼭 생성필요
     public PostItem() {
+        // Firestore 매핑을 위한 빈 생성자
     }
 
-    public PostItem(String title, List<String> images) {
-        this.title = title;
-        this.images = images;
-    }
-
-
-    // Getter 와 Setter 메서드들
+    // --- Getter & Setter ---
     public String getDocumentId() { return documentId; }
     public void setDocumentId(String documentId) { this.documentId = documentId; }
+
+    public String getUserId() { return userId; }
+    public void setUserId(String userId) { this.userId = userId; }
+
+    public String getUserEmail() { return userEmail; } // [추가]
+    public void setUserEmail(String userEmail) { this.userEmail = userEmail; } // [추가]
 
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
@@ -42,15 +41,21 @@ public class PostItem implements Parcelable {
     public List<String> getImages() { return images; }
     public void setImages(List<String> images) { this.images = images; }
 
+    public boolean isPublic() { return isPublic; }
+    public void setPublic(boolean aPublic) { isPublic = aPublic; }
+
     public Date getCreatedAt() { return createdAt; }
     public void setCreatedAt(Date createdAt) { this.createdAt = createdAt; }
 
-    //Parcelable 구현
+
+    // --- Parcelable 구현 ---
     protected PostItem(Parcel in) {
         documentId = in.readString();
+        userId = in.readString();
+        userEmail = in.readString(); // [수정]
         title = in.readString();
         images = in.createStringArrayList();
-        // Date는 long 타입(타임스탬프 숫자)으로 변환해서 주고받음
+        isPublic = in.readByte() != 0;
         long tmpCreatedAt = in.readLong();
         createdAt = tmpCreatedAt == -1 ? null : new Date(tmpCreatedAt);
     }
@@ -58,8 +63,11 @@ public class PostItem implements Parcelable {
     @Override
     public void writeToParcel(Parcel dest, int flags) {
         dest.writeString(documentId);
+        dest.writeString(userId);
+        dest.writeString(userEmail); // [수정]
         dest.writeString(title);
         dest.writeStringList(images);
+        dest.writeByte((byte) (isPublic ? 1 : 0));
         dest.writeLong(createdAt != null ? createdAt.getTime() : -1);
     }
 

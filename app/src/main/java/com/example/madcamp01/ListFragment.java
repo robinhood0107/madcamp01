@@ -49,8 +49,10 @@ public class ListFragment extends Fragment {
         storage = FirebaseStorage.getInstance();
         recyclerView = view.findViewById(R.id.recyclerView);
         loadingProgressBar = view.findViewById(R.id.loadingProgressBar);
-        recyclerView.setLayoutManager(new GridLayoutManager(getContext(), 2));
-        adapter = new PostAdapter(getContext());
+
+        recyclerView.setLayoutManager(new GridLayoutManager(view.getContext(), 2));
+        // [수정] 어댑터 생성 시 isMyList를 true로 전달
+        adapter = new PostAdapter(view.getContext(), true);
         recyclerView.setAdapter(adapter);
 
         adapter.setOnItemClickListener(item -> {
@@ -64,7 +66,6 @@ public class ListFragment extends Fragment {
                     .commit();
         });
 
-        // 롱클릭 시 PopupMenu 띄우기
         adapter.setOnItemLongClickListener(this::showPopupMenu);
 
         recyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
@@ -82,10 +83,8 @@ public class ListFragment extends Fragment {
 
     private void showPopupMenu(View anchorView, PostItem item) {
         if (getContext() == null) return;
-
         PopupMenu popup = new PopupMenu(getContext(), anchorView);
         popup.getMenuInflater().inflate(R.menu.post_context_menu, popup.getMenu());
-
         popup.setOnMenuItemClickListener(menuItem -> {
             int itemId = menuItem.getItemId();
             if (itemId == R.id.menu_edit) {
@@ -97,7 +96,6 @@ public class ListFragment extends Fragment {
             }
             return false;
         });
-
         popup.show();
     }
 
@@ -117,7 +115,6 @@ public class ListFragment extends Fragment {
             Toast.makeText(getContext(), "오류: 게시물 ID가 없습니다.", Toast.LENGTH_SHORT).show();
             return;
         }
-
         db.collection("TravelPosts").document(documentId).delete()
                 .addOnSuccessListener(aVoid -> {
                     deletePostImages(item.getImages());
@@ -162,9 +159,7 @@ public class ListFragment extends Fragment {
                 adapter.addPostList(newPosts);
                 lastVisible = queryDocumentSnapshots.getDocuments().get(queryDocumentSnapshots.size() - 1);
             } else if (lastVisible == null) {
-                Toast.makeText(getContext(), "아직 게시물이 없습니다. 첫 글을 작성해보세요!", Toast.LENGTH_LONG).show();
-            } else {
-                Toast.makeText(getContext(), "더 이상 게시물이 없습니다.", Toast.LENGTH_SHORT).show();
+                // 첫 로드인데 게시물이 없는 경우
             }
             isLoading = false;
         }).addOnFailureListener(e -> {

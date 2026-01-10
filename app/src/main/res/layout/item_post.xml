@@ -14,6 +14,17 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
+        <!-- 사용자 이메일 표시 (기존 userId TextView를 대체) -->
+        <TextView
+                android:id="@+id/tvUserEmail"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingStart="12dp"
+                android:paddingTop="8dp"
+                android:paddingEnd="12dp"
+                android:text="user_email@example.com"
+                android:textStyle="bold"/>
+
         <ImageView
                 android:id="@+id/ivPostImage"
                 android:layout_width="match_parent"
@@ -21,13 +32,32 @@
                 android:scaleType="centerCrop"
                 android:background="#EEE"/>
 
-        <TextView
-                android:id="@+id/tvTitle"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:padding="12dp"
-                android:text="제목"
-                android:textSize="16sp"
-                android:textStyle="bold"/>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                    android:id="@+id/tvTitle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:padding="12dp"
+                    android:text="제목"
+                    android:textSize="16sp"
+                    android:textStyle="bold"/>
+
+            <!-- 공개/비공개 상태 표시 -->
+            <TextView
+                    android:id="@+id/tvPublicStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingEnd="12dp"
+                    android:text="(공개)"
+                    android:textColor="#008800"
+                    android:textStyle="bold"
+                    android:visibility="gone"/> // 평소에는 숨겨둠
+        </LinearLayout>
     </LinearLayout>
 </androidx.cardview.widget.CardView>
