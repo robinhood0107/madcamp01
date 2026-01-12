@@ -8,6 +8,8 @@ import android.widget.ImageView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
+import com.bumptech.glide.request.RequestOptions;
 import com.bumptech.glide.request.target.CustomTarget;
 import com.bumptech.glide.request.transition.Transition;
 import com.google.android.gms.maps.GoogleMap;
@@ -53,7 +55,18 @@ public class PhotoRenderer extends DefaultClusterRenderer<PhotoItem> {
     }
 
     private void loadMarkerImage(String url, Marker marker) {
-        Glide.with(context).asBitmap().load(url).circleCrop().override(150, 150)
+        // 빠른 로드를 위해 썸네일 우선, 작은 사이즈, 캐싱 강화
+        RequestOptions options = new RequestOptions()
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .override(96,96)   // 조금 더 크게 로드
+                .circleCrop();
+
+        Glide.with(context)
+                .asBitmap()
+                .load(url)
+                .apply(options)
+                .thumbnail(0.25f)   // 저해상도 썸네일을 먼저 표시
+                .dontAnimate()
                 .into(new CustomTarget<Bitmap>() {
                     @Override
                     public void onResourceReady(@NonNull Bitmap resource, @Nullable Transition<? super Bitmap> transition) {

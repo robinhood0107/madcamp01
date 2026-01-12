@@ -1,7 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- ImageView를 새로 만든 SquareImageView로 교체합니다. -->
-<com.example.madcamp01.SquareImageView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/ivDetailImage"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content" 
-    android:scaleType="centerCrop" />
+    android:layout_height="wrap_content"
+    android:layout_margin="4dp">
+
+    <com.example.madcamp01.SquareImageView
+        android:id="@+id/ivDetailImage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:scaleType="centerCrop"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <View
+        android:id="@+id/imageOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/overlay_hero_gradient"
+        app:layout_constraintTop_toTopOf="@id/ivDetailImage"
+        app:layout_constraintBottom_toBottomOf="@id/ivDetailImage" />
+
+    <TextView
+        android:id="@+id/tvDate"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="8dp"
+        android:layout_marginBottom="8dp"
+        android:text="2024년 1월 1일"
+        android:textColor="@android:color/white"
+        android:textSize="11sp"
+        android:background="#80000000"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
+        android:elevation="4dp"
+        app:layout_constraintEnd_toEndOf="@id/ivDetailImage"
+        app:layout_constraintBottom_toBottomOf="@id/ivDetailImage" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -64,6 +64,8 @@ public class DetailFragment extends Fragment {
             }
         }
         detailAdapter = new DetailAdapter(getContext(), images);
+        detailAdapter.setPostItem(postItem);
+        detailAdapter.setSpanCount(2); // 초기값 2열 설정
 
         // --- 클릭 리스너 설정 (전체 화면 보기) ---
         detailAdapter.setOnItemClickListener(position -> {
@@ -77,13 +79,17 @@ public class DetailFragment extends Fragment {
         });
 
         // --- 레이아웃 매니저 및 SpanSizeLookup 복원 ---
-        layoutManager = new GridLayoutManager(getContext(), 1); // 초기 1열
+        layoutManager = new GridLayoutManager(getContext(), 2); // 초기 2열 (2x2 배열)
         layoutManager.setSpanSizeLookup(new GridLayoutManager.SpanSizeLookup() {
             @Override
             public int getSpanSize(int position) {
                 // 어댑터의 아이템 타입에 따라 칸 수 조절
-                if (detailAdapter.getItemViewType(position) == DetailAdapter.VIEW_TYPE_FOOTER) {
+                int viewType = detailAdapter.getItemViewType(position);
+                if (viewType == DetailAdapter.VIEW_TYPE_FOOTER) {
                     // 푸터는 현재 설정된 열 개수를 모두 차지
+                    return layoutManager.getSpanCount();
+                } else if (viewType == DetailAdapter.VIEW_TYPE_DAY_HEADER) {
+                    // 일차 헤더는 현재 설정된 열 개수를 모두 차지
                     return layoutManager.getSpanCount();
                 }
                 // 이미지는 1칸만 차지
@@ -103,12 +109,18 @@ public class DetailFragment extends Fragment {
             }
         });
 
+        // 초기값을 2열(2x2)로 설정
+        seekBar.setProgress(1);
+        tvColCount.setText("2열");
+        
         seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 int spanCount = progress + 1;
                 tvColCount.setText(spanCount + "열");
                 layoutManager.setSpanCount(spanCount);
+                // 어댑터에 열 개수 전달 (4열 이상일 때 날짜 숨김)
+                detailAdapter.setSpanCount(spanCount);
             }
 
             @Override
