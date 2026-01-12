@@ -12,6 +12,7 @@ public class PhotoInfo {
     private Date photoDate;  // EXIF에서 추출한 촬영 날짜
     private Double latitude;  // 위도
     private Double longitude; // 경도
+    private String location;  // 위치
     private String dayNumber; // 일차 ("1", "2", "3"...)
     private String imageUrl;   // 업로드 후 URL
     private String thumbnailUrl; // 썸네일 URL
@@ -50,6 +51,14 @@ public class PhotoInfo {
 
     public void setLongitude(Double longitude) {
         this.longitude = longitude;
+    }
+
+    public String getLocation() {
+        return location;
+    }
+
+    public void setLocation(String location) {
+        this.location = location;
     }
 
     public String getDayNumber() {
