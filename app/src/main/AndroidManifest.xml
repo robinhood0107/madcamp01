@@ -16,7 +16,7 @@
         android:theme="@style/Theme.Madcamp01">
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyDLGUFQLTVcg99SAaqQETorIFBxlqCExow"/>
+            android:value="${apiKey}"/>
         <activity
             android:name=".LoginActivity"
             android:exported="true">
