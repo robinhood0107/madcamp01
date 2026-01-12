@@ -67,6 +67,7 @@ public class WriteFragment extends Fragment {
     private FirebaseAuth auth; // Firebase Authentication 인스턴스 추가
     private androidx.appcompat.app.AlertDialog progressDialog; // 로딩바용
     private com.google.android.material.materialswitch.MaterialSwitch switchIsPublic; // 공개 비공개 버튼
+    private android.widget.TextView textTravelPeriod; // 여행 기간 표시 텍스트
     private String editPostId = null;// 수정 중인지 체크
     private boolean isSaving = false; // 저장 프로세스 중인지 확인
     
@@ -125,6 +126,7 @@ public class WriteFragment extends Fragment {
         Button btnSave = view.findViewById(R.id.btn_save);
         Button btnChangeTravelInfo = view.findViewById(R.id.btn_change_travel_info);
         switchIsPublic = view.findViewById(R.id.switch_is_public);
+        textTravelPeriod = view.findViewById(R.id.text_travel_period);
 
         // 5. 리사이클러뷰(사진 리스트) 설정
         // 일차별로 그룹화되어 있으므로 LinearLayoutManager 사용
@@ -199,12 +201,19 @@ public class WriteFragment extends Fragment {
             
             sortPhotosByDay();
             photoAdapter.updateAdapterItems();
+            
+            // 여행 기간 텍스트 업데이트
+            updateTravelPeriodText();
         } else {
             // 등록 모드: 여행 정보가 설정되어 있으면 버튼 표시
             if (startDate != null && travelDays > 0) {
                 btnChangeTravelInfo.setVisibility(View.VISIBLE);
             }
         }
+        
+        // 여행 기간 텍스트 업데이트
+        updateTravelPeriodText();
+        
         // 6. 버튼 클릭 시 갤러리 실행
         btnAddPhoto.setOnClickListener(v -> {
             getMultipleContents.launch("image/*"); // 이미지 파일만 선택하도록 실행
@@ -934,6 +943,9 @@ public class WriteFragment extends Fragment {
                     // 여행 기간 밖의 사진이 있는지 확인하고 제거
                     removePhotosOutsideTravelPeriod();
                     
+                    // 여행 기간 텍스트 업데이트
+                    updateTravelPeriodText();
+                    
                     Toast.makeText(getContext(), "여행 일정이 변경되었습니다.", Toast.LENGTH_SHORT).show();
                     previousDialog.dismiss();
                 })
@@ -942,6 +954,35 @@ public class WriteFragment extends Fragment {
                 })
                 .setCancelable(false)
                 .show();
+    }
+    
+    /**
+     * 여행 기간 텍스트 업데이트
+     */
+    private void updateTravelPeriodText() {
+        if (textTravelPeriod == null) return;
+        
+        if (startDate != null && travelDays > 0) {
+            // 종료일 계산
+            Calendar endCal = Calendar.getInstance();
+            endCal.setTime(startDate);
+            endCal.add(Calendar.DAY_OF_MONTH, travelDays - 1);
+            
+            // 날짜 포맷팅
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy년 MM월 dd일", Locale.getDefault());
+            String startDateStr = sdf.format(startDate);
+            String endDateStr = sdf.format(endCal.getTime());
+            
+            // X박X일 계산
+            int nights = travelDays - 1;
+            String periodText = startDateStr + " ~ " + endDateStr + " (" + nights + "박" + travelDays + "일, " + travelDays + "일차)";
+            
+            textTravelPeriod.setText("여행 기간: " + periodText);
+            textTravelPeriod.setVisibility(View.VISIBLE);
+        } else {
+            textTravelPeriod.setText("여행 기간: 설정되지 않음");
+            textTravelPeriod.setVisibility(View.VISIBLE);
+        }
     }
 }
 
