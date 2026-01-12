@@ -4,6 +4,8 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.location.Address;
+import android.location.Geocoder;
 import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Bundle;
@@ -154,6 +156,7 @@ public class WriteFragment extends Fragment {
                 List<Date> imageDates = postItem.getImageDates(); // 정확한 촬영 시각
                 List<Double> imageLatitudes = postItem.getImageLatitudes();
                 List<Double> imageLongitudes = postItem.getImageLongitudes();
+                List<String> imageLocations = postItem.getImageLocations();
                 
                 if (images != null) {
                     for (int i = 0; i < images.size(); i++) {
@@ -174,6 +177,9 @@ public class WriteFragment extends Fragment {
                         }
                         if (imageLongitudes != null && i < imageLongitudes.size() && imageLongitudes.get(i) != null) {
                             photoInfo.setLongitude(imageLongitudes.get(i));
+                        }
+                        if (imageLocations != null && i < imageLocations.size() && imageLocations.get(i) != null) {
+                            photoInfo.setLocation(imageLocations.get(i));
                         }
                         photoInfoList.add(photoInfo);
                     }
@@ -401,8 +407,14 @@ public class WriteFragment extends Fragment {
             // 위치 정보 추출
             float[] latLong = new float[2];
             if (exif.getLatLong(latLong)) {
-                photoInfo.setLatitude((double)latLong[0]);
-                photoInfo.setLongitude((double)latLong[1]);
+                double lat = (double) latLong[0];
+                double lon = (double) latLong[1];
+
+                photoInfo.setLatitude(lat);
+                photoInfo.setLongitude(lon);
+
+                String address = getAddressFromLocation(lat, lon);
+                photoInfo.setLocation(address);
             }
             
         } catch (IOException e) {
@@ -645,6 +657,7 @@ public class WriteFragment extends Fragment {
         List<Date> imageDates = new ArrayList<>(); // 각 사진의 정확한 촬영 시각
         List<Double> imageLatitudes = new ArrayList<>();
         List<Double> imageLongitudes = new ArrayList<>();
+        List<String> imageLocations= new ArrayList<>();
         
         // 여행 종료일 계산 (등록/수정 모두 검증)
         Calendar endCal = null;
@@ -692,6 +705,7 @@ public class WriteFragment extends Fragment {
             imageDates.add(photoInfo.getPhotoDate() != null ? photoInfo.getPhotoDate() : new Date());
             imageLatitudes.add(photoInfo.getLatitude());
             imageLongitudes.add(photoInfo.getLongitude());
+            imageLocations.add(photoInfo.getLocation());
         }
         
         // 필터링된 사진이 있으면 알림
@@ -707,6 +721,7 @@ public class WriteFragment extends Fragment {
         post.put("imageDates", imageDates); // 정확한 촬영 시각 저장
         post.put("imageLatitudes", imageLatitudes);
         post.put("imageLongitudes", imageLongitudes);
+        post.put("imageLocations", imageLocations);
         post.put("startDate", startDate != null ? startDate : new Date());
         post.put("travelDays", travelDays > 0 ? travelDays : 1);
         post.put("isPublic", isPublic);
@@ -743,7 +758,38 @@ public class WriteFragment extends Fragment {
                     });
         }
     }
+    private String getAddressFromLocation(double lat, double lon) { //위도경도 주소로 변환
+        // 좌표가 0인 경우(위치 정보 없음) 처리
+        if (lat == 0.0 && lon == 0.0) return "위치 정보 없음";
 
+        Geocoder geocoder = new Geocoder(getContext(), Locale.KOREA);
+        try {
+            List<Address> addresses = geocoder.getFromLocation(lat, lon, 1);
+            if (addresses != null && !addresses.isEmpty()) {
+                Address address = addresses.get(0);
+                /*
+                // "서울특별시 강남구" 형태로 만들기
+                String adminArea = address.getAdminArea();    // 서울특별시
+                String subLocality = address.getLocality();   // 강남구 (혹은 구 단위)
+                String thoroughfare = address.getThoroughfare(); // 동 단위
+
+                StringBuilder sb = new StringBuilder();
+                if (adminArea != null) sb.append(adminArea).append(" ");
+                if (subLocality != null) sb.append(subLocality);
+
+                // 만약 구 단위가 null이면 다른 필드 확인
+                if (sb.length() == 0) return address.getCountryName(); // 국가명이라도 반환
+
+                return sb.toString().trim();
+
+                 */
+                return address.toString();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "주소 변환 실패";
+    }
     // 메인 리스트 탭으로 이동하는 공통 함수
     private void goToMainList() {
         if (getActivity() != null) {
