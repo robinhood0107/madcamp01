@@ -55,14 +55,27 @@ public class ListFragment extends Fragment {
 
         recyclerView.setLayoutManager(new GridLayoutManager(view.getContext(), 2));
 
+        // [수정] 지도 버튼 설정
         View btnOpenMap = view.findViewById(R.id.btn_open_map);
-        btnOpenMap.setOnClickListener(v -> {
-            PostMapFragment mapFragment = new PostMapFragment();
-            getParentFragmentManager().beginTransaction()
-                    .replace(R.id.fragment_container, mapFragment) // R.id.fragment_container는 실제 컨테이너 ID로 변경
-                    .addToBackStack(null) // 뒤로가기 버튼 지원
-                    .commit();
-        });
+        if (btnOpenMap != null) {
+            btnOpenMap.setOnClickListener(v -> {
+                PostMapFragment mapFragment = new PostMapFragment();
+                getParentFragmentManager().beginTransaction()
+                        .replace(R.id.fragment_container, mapFragment)
+                        .addToBackStack(null)
+                        .commit();
+            });
+        }
+        View fabAddPost = view.findViewById(R.id.btn_new_post); // XML의 ID와 일치해야 함
+        if (fabAddPost != null) {
+            fabAddPost.setOnClickListener(v -> {
+                // MainActivity의 showWriteChoiceDialog() 호출
+                if (getActivity() instanceof MainActivity) {
+                    ((MainActivity) getActivity()).showTravelInfoDialog();
+                }
+            });
+        }
+
 
         // [수정] 어댑터 생성 시 isMyList를 true로 전달
         adapter = new PostAdapter(view.getContext(), true);
@@ -121,16 +134,10 @@ public class ListFragment extends Fragment {
                         .addToBackStack(null) // 뒤로가기 가능하게 설정
                         .commit();
 
-                // 4. 네비게이션 바 상태 업데이트
                 if (getActivity() != null) {
-                    com.google.android.material.bottomnavigation.BottomNavigationView bottomNav = 
-                        getActivity().findViewById(R.id.bottom_navigation);
-                    if (bottomNav != null) {
-                        bottomNav.getMenu().findItem(R.id.nav_write).setChecked(true);
-                    }
-                    // 타이틀 업데이트
+                    // 타이틀만 업데이트
                     if (getActivity() instanceof androidx.appcompat.app.AppCompatActivity) {
-                        ((androidx.appcompat.app.AppCompatActivity) getActivity()).setTitle("글쓰기");
+                        ((androidx.appcompat.app.AppCompatActivity) getActivity()).setTitle("게시물 수정");
                     }
                 }
 

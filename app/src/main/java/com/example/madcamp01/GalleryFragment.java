@@ -169,19 +169,6 @@ public class GalleryFragment extends Fragment {
                         .addToBackStack(null) // 뒤로가기 가능하게 설정
                         .commit();
 
-                // 4. 네비게이션 바 상태 업데이트
-                if (getActivity() != null) {
-                    com.google.android.material.bottomnavigation.BottomNavigationView bottomNav = 
-                        getActivity().findViewById(R.id.bottom_navigation);
-                    if (bottomNav != null) {
-                        bottomNav.getMenu().findItem(R.id.nav_write).setChecked(true);
-                    }
-                    // 타이틀 업데이트
-                    if (getActivity() instanceof androidx.appcompat.app.AppCompatActivity) {
-                        ((androidx.appcompat.app.AppCompatActivity) getActivity()).setTitle("글쓰기");
-                    }
-                }
-
                 return true;
             } else if (itemId == R.id.menu_delete) {
                 showDeleteConfirmationDialog(item);
