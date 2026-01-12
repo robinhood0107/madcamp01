@@ -54,6 +54,16 @@ public class ListFragment extends Fragment {
         loadingProgressBar = view.findViewById(R.id.loadingProgressBar);
 
         recyclerView.setLayoutManager(new GridLayoutManager(view.getContext(), 2));
+
+        View btnOpenMap = view.findViewById(R.id.btn_open_map);
+        btnOpenMap.setOnClickListener(v -> {
+            PostMapFragment mapFragment = new PostMapFragment();
+            getParentFragmentManager().beginTransaction()
+                    .replace(R.id.fragment_container, mapFragment) // R.id.fragment_container는 실제 컨테이너 ID로 변경
+                    .addToBackStack(null) // 뒤로가기 버튼 지원
+                    .commit();
+        });
+
         // [수정] 어댑터 생성 시 isMyList를 true로 전달
         adapter = new PostAdapter(view.getContext(), true);
         recyclerView.setAdapter(adapter);
