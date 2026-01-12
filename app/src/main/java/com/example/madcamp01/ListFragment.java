@@ -101,6 +101,7 @@ public class ListFragment extends Fragment {
                 args.putString("title", item.getTitle());       // 기존 제목
                 args.putStringArrayList("images", new ArrayList<>(item.getImages())); // 기존 이미지 리스트
                 args.putBoolean("isPublic", item.getIsPublic());   // 공개 여부
+                args.putParcelable("postItem", item); // PostItem 전체 전달
 
                 writeFragment.setArguments(args);
 
@@ -109,6 +110,19 @@ public class ListFragment extends Fragment {
                         .replace(R.id.fragment_container, writeFragment)
                         .addToBackStack(null) // 뒤로가기 가능하게 설정
                         .commit();
+
+                // 4. 네비게이션 바 상태 업데이트
+                if (getActivity() != null) {
+                    com.google.android.material.bottomnavigation.BottomNavigationView bottomNav = 
+                        getActivity().findViewById(R.id.bottom_navigation);
+                    if (bottomNav != null) {
+                        bottomNav.getMenu().findItem(R.id.nav_write).setChecked(true);
+                    }
+                    // 타이틀 업데이트
+                    if (getActivity() instanceof androidx.appcompat.app.AppCompatActivity) {
+                        ((androidx.appcompat.app.AppCompatActivity) getActivity()).setTitle("글쓰기");
+                    }
+                }
 
                 return true;
             } else if (itemId == R.id.menu_delete) {
