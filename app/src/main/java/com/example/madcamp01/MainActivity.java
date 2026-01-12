@@ -15,13 +15,14 @@ import com.google.android.material.bottomnavigation.BottomNavigationView;
 public class MainActivity extends AppCompatActivity {
     //자바에서는 onCreate() 함수가 시작점
     private int previousTabId = R.id.nav_my_list; // 이전 탭 ID 저장 (기본값: 내 여행 리스트)
+    private BottomNavigationView bottomNav; // 네비게이션 바 참조
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
+        bottomNav = findViewById(R.id.bottom_navigation);
         // 프래그먼트 변경 시 하단 바 상태를 동기화하기 위한 리스너
         getSupportFragmentManager().addOnBackStackChangedListener(new FragmentManager.OnBackStackChangedListener() {
             @Override
@@ -333,23 +334,8 @@ public class MainActivity extends AppCompatActivity {
                         calendar.set(datePicker.getYear(), datePicker.getMonth(), datePicker.getDayOfMonth());
                         java.util.Date startDate = calendar.getTime();
                         
-                        // WriteFragment에 여행 정보 전달
-                        Bundle newArgs = new Bundle();
-                        newArgs.putInt("travelDays", travelDays);
-                        newArgs.putLong("startDate", startDate.getTime());
-                        writeFragment.setArguments(newArgs);
-                        
-                        // WriteFragment의 여행 정보 업데이트를 위해 재생성
-                        WriteFragment updatedWriteFragment = new WriteFragment();
-                        updatedWriteFragment.setArguments(newArgs);
-                        
-                        getSupportFragmentManager().beginTransaction()
-                                .replace(R.id.fragment_container, updatedWriteFragment)
-                                .commit();
-                        setTitle("글쓰기");
-                        bottomNav.getMenu().findItem(R.id.nav_write).setChecked(true);
-                        
-                        dialog.dismiss();
+                        // 확인 다이얼로그 표시
+                        showTravelInfoConfirmationDialog(startDate, travelDays, writeFragment, dialog);
                     });
                     
                     android.widget.Button negativeButton = dialog.getButton(android.app.AlertDialog.BUTTON_NEGATIVE);
@@ -377,6 +363,7 @@ public class MainActivity extends AppCompatActivity {
                 dialog.show();
             }
         });
+        
         // 뒤로 가기 버튼 클릭 시 확인 팝업 띄우기
         OnBackPressedCallback callback = new OnBackPressedCallback(true) {
             @Override
@@ -401,7 +388,51 @@ public class MainActivity extends AppCompatActivity {
         };
         // 콜백 등록
         getOnBackPressedDispatcher().addCallback(this, callback);
-
+    }
+    
+    // 여행 정보 확인 다이얼로그 표시
+    private void showTravelInfoConfirmationDialog(java.util.Date startDate, int travelDays, WriteFragment writeFragment, android.app.AlertDialog previousDialog) {
+        // 종료일 계산
+        java.util.Calendar endCal = java.util.Calendar.getInstance();
+        endCal.setTime(startDate);
+        endCal.add(java.util.Calendar.DAY_OF_MONTH, travelDays - 1);
+        
+        // 날짜 포맷팅
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy년 MM월 dd일", java.util.Locale.getDefault());
+        String startDateStr = sdf.format(startDate);
+        String endDateStr = sdf.format(endCal.getTime());
+        
+        // X박X일 계산
+        int nights = travelDays - 1;
+        String message = startDateStr + "부터 " + endDateStr + "까지(" + nights + "박" + travelDays + "일, " + travelDays + "일차) 여행이 맞습니까?";
+        
+        new android.app.AlertDialog.Builder(MainActivity.this)
+                .setTitle("여행 일정 확인")
+                .setMessage(message)
+                .setPositiveButton("맞습니다", (d, which) -> {
+                    // WriteFragment에 여행 정보 전달
+                    Bundle newArgs = new Bundle();
+                    newArgs.putInt("travelDays", travelDays);
+                    newArgs.putLong("startDate", startDate.getTime());
+                    writeFragment.setArguments(newArgs);
+                    
+                    // WriteFragment의 여행 정보 업데이트를 위해 재생성
+                    WriteFragment updatedWriteFragment = new WriteFragment();
+                    updatedWriteFragment.setArguments(newArgs);
+                    
+                    getSupportFragmentManager().beginTransaction()
+                            .replace(R.id.fragment_container, updatedWriteFragment)
+                            .commit();
+                    setTitle("글쓰기");
+                    bottomNav.getMenu().findItem(R.id.nav_write).setChecked(true);
+                    
+                    previousDialog.dismiss();
+                })
+                .setNegativeButton("수정하기", (d, which) -> {
+                    // 수정하기를 누르면 이전 다이얼로그는 그대로 유지 (아무것도 안 함)
+                })
+                .setCancelable(false)
+                .show();
     }
 
 }
