@@ -123,6 +123,7 @@ public class WriteFragment extends Fragment {
         recyclerView = view.findViewById(R.id.recycler_photos);
         Button btnAddPhoto = view.findViewById(R.id.btn_add_photo);
         Button btnSave = view.findViewById(R.id.btn_save);
+        Button btnChangeTravelInfo = view.findViewById(R.id.btn_change_travel_info);
         switchIsPublic = view.findViewById(R.id.switch_is_public);
 
         // 5. 리사이클러뷰(사진 리스트) 설정
@@ -139,6 +140,7 @@ public class WriteFragment extends Fragment {
             editTripTitle.setText(getArguments().getString("title"));
             switchIsPublic.setChecked(getArguments().getBoolean("isPublic"));
             btnSave.setText("수정 완료"); //저장하기 버튼을 수정하기로 바꿈
+            btnChangeTravelInfo.setVisibility(View.VISIBLE); // 여행 일짜 변경 버튼 표시
             
             // PostItem 전체를 받았는지 확인
             PostItem postItem = getArguments().getParcelable("postItem");
@@ -197,10 +199,20 @@ public class WriteFragment extends Fragment {
             
             sortPhotosByDay();
             photoAdapter.updateAdapterItems();
+        } else {
+            // 등록 모드: 여행 정보가 설정되어 있으면 버튼 표시
+            if (startDate != null && travelDays > 0) {
+                btnChangeTravelInfo.setVisibility(View.VISIBLE);
+            }
         }
         // 6. 버튼 클릭 시 갤러리 실행
         btnAddPhoto.setOnClickListener(v -> {
             getMultipleContents.launch("image/*"); // 이미지 파일만 선택하도록 실행
+        });
+
+        // 여행 일짜 변경 버튼 클릭 시
+        btnChangeTravelInfo.setOnClickListener(v -> {
+            showTravelInfoDialog();
         });
 
         // 7. 저장 버튼 클릭 시 파이어베이스 업로드 함수 실행
@@ -247,8 +259,8 @@ public class WriteFragment extends Fragment {
      * 새로 추가된 사진들을 처리 (EXIF 추출 및 일차 분류)
      */
     private void processNewPhotos(List<Uri> uris) {
-        // 신규 작성 시에만 시작일 검증 필요
-        if (editPostId == null && startDate == null) {
+        // 시작일 검증 (등록/수정 모두 필요)
+        if (startDate == null) {
             Toast.makeText(getContext(), "여행 시작일이 설정되지 않았습니다.", Toast.LENGTH_SHORT).show();
             return;
         }
@@ -257,21 +269,30 @@ public class WriteFragment extends Fragment {
         
         executorService.execute(() -> {
             List<PhotoInfo> newPhotoInfos = new ArrayList<>();
-            List<Uri> rejectedPhotos = new ArrayList<>(); // 시작일보다 이전 사진들
+            List<Uri> rejectedPhotos = new ArrayList<>(); // 여행 기간 밖의 사진들
             
             for (Uri uri : uris) {
                 PhotoInfo photoInfo = new PhotoInfo(uri);
                 // EXIF 데이터 추출
                 extractExifData(photoInfo);
                 
-                // 신규 작성 시: 시작일보다 이전 사진은 제외
-                if (editPostId == null && startDate != null && photoInfo.getPhotoDate() != null) {
+                // 여행 기간(시작일 ~ 종료일) 밖의 사진은 제외 (등록/수정 모두 적용)
+                if (startDate != null && travelDays > 0 && photoInfo.getPhotoDate() != null) {
                     Calendar startCal = Calendar.getInstance();
                     startCal.setTime(startDate);
                     startCal.set(Calendar.HOUR_OF_DAY, 0);
                     startCal.set(Calendar.MINUTE, 0);
                     startCal.set(Calendar.SECOND, 0);
                     startCal.set(Calendar.MILLISECOND, 0);
+                    
+                    // 여행 종료일 계산 (시작일 + travelDays - 1일, 마지막 날 23:59:59까지)
+                    Calendar endCal = Calendar.getInstance();
+                    endCal.setTime(startDate);
+                    endCal.add(Calendar.DAY_OF_MONTH, travelDays - 1); // travelDays가 3이면 0, 1, 2일차이므로 -1
+                    endCal.set(Calendar.HOUR_OF_DAY, 23);
+                    endCal.set(Calendar.MINUTE, 59);
+                    endCal.set(Calendar.SECOND, 59);
+                    endCal.set(Calendar.MILLISECOND, 999);
                     
                     Calendar photoCal = Calendar.getInstance();
                     photoCal.setTime(photoInfo.getPhotoDate());
@@ -280,8 +301,9 @@ public class WriteFragment extends Fragment {
                     photoCal.set(Calendar.SECOND, 0);
                     photoCal.set(Calendar.MILLISECOND, 0);
                     
-                    // 시작일보다 이전이면 제외
-                    if (photoCal.getTimeInMillis() < startCal.getTimeInMillis()) {
+                    // 시작일보다 이전이거나 종료일보다 이후면 제외
+                    if (photoCal.getTimeInMillis() < startCal.getTimeInMillis() || 
+                        photoCal.getTimeInMillis() > endCal.getTimeInMillis()) {
                         rejectedPhotos.add(uri);
                         continue; // 이 사진은 추가하지 않음
                     }
@@ -317,8 +339,11 @@ public class WriteFragment extends Fragment {
                     
                     // 제외된 사진이 있으면 사용자에게 알림
                     if (!rejectedPhotos.isEmpty()) {
-                        String message = rejectedPhotos.size() + "장의 사진이 여행 시작일(" + 
-                            formatDate(startDate) + ")보다 이전에 촬영되어 추가되지 않았습니다.";
+                        Calendar endCal = Calendar.getInstance();
+                        endCal.setTime(startDate);
+                        endCal.add(Calendar.DAY_OF_MONTH, travelDays - 1);
+                        String message = rejectedPhotos.size() + "장의 사진이 여행 기간(" + 
+                            formatDate(startDate) + " ~ " + formatDate(endCal.getTime()) + ") 밖에 촬영되어 추가되지 않았습니다.";
                         Toast.makeText(getContext(), message, Toast.LENGTH_LONG).show();
                     }
                     
@@ -612,7 +637,45 @@ public class WriteFragment extends Fragment {
         List<Double> imageLatitudes = new ArrayList<>();
         List<Double> imageLongitudes = new ArrayList<>();
         
+        // 여행 종료일 계산 (등록/수정 모두 검증)
+        Calendar endCal = null;
+        Calendar startCal = null;
+        if (startDate != null && travelDays > 0) {
+            startCal = Calendar.getInstance();
+            startCal.setTime(startDate);
+            startCal.set(Calendar.HOUR_OF_DAY, 0);
+            startCal.set(Calendar.MINUTE, 0);
+            startCal.set(Calendar.SECOND, 0);
+            startCal.set(Calendar.MILLISECOND, 0);
+            
+            endCal = Calendar.getInstance();
+            endCal.setTime(startDate);
+            endCal.add(Calendar.DAY_OF_MONTH, travelDays - 1);
+            endCal.set(Calendar.HOUR_OF_DAY, 23);
+            endCal.set(Calendar.MINUTE, 59);
+            endCal.set(Calendar.SECOND, 59);
+            endCal.set(Calendar.MILLISECOND, 999);
+        }
+        
+        int filteredCount = 0;
         for (PhotoInfo photoInfo : photoInfoList) {
+            // 여행 기간 밖의 사진은 저장하지 않음 (등록/수정 모두 적용)
+            if (startCal != null && endCal != null && photoInfo.getPhotoDate() != null) {
+                Calendar photoCal = Calendar.getInstance();
+                photoCal.setTime(photoInfo.getPhotoDate());
+                photoCal.set(Calendar.HOUR_OF_DAY, 0);
+                photoCal.set(Calendar.MINUTE, 0);
+                photoCal.set(Calendar.SECOND, 0);
+                photoCal.set(Calendar.MILLISECOND, 0);
+                
+                // 여행 기간 밖이면 건너뜀
+                if (photoCal.getTimeInMillis() < startCal.getTimeInMillis() || 
+                    photoCal.getTimeInMillis() > endCal.getTimeInMillis()) {
+                    filteredCount++;
+                    continue;
+                }
+            }
+            
             images.add(photoInfo.getImageUrl() != null ? photoInfo.getImageUrl() : "");
             imageDays.add(photoInfo.getDayNumber() != null ? photoInfo.getDayNumber() : "1");
             imageThumbnails.add(photoInfo.getThumbnailUrl() != null ? photoInfo.getThumbnailUrl() : photoInfo.getImageUrl());
@@ -620,6 +683,11 @@ public class WriteFragment extends Fragment {
             imageDates.add(photoInfo.getPhotoDate() != null ? photoInfo.getPhotoDate() : new Date());
             imageLatitudes.add(photoInfo.getLatitude());
             imageLongitudes.add(photoInfo.getLongitude());
+        }
+        
+        // 필터링된 사진이 있으면 알림
+        if (filteredCount > 0) {
+            Toast.makeText(getContext(), filteredCount + "장의 사진이 여행 기간 밖에 촬영되어 저장되지 않았습니다.", Toast.LENGTH_LONG).show();
         }
 
         Map<String, Object> post = new HashMap<>();
@@ -716,6 +784,164 @@ public class WriteFragment extends Fragment {
         // 1. 제목이 비어있지 않거나
         // 2. 선택된 사진이 하나라도 있다면 '내용이 있음'으로 판단
         return !title.isEmpty() || (photoInfoList != null && !photoInfoList.isEmpty());
+    }
+    
+    /**
+     * 여행 일정 변경 다이얼로그 표시 (등록/수정 모드 모두 사용)
+     */
+    private void showTravelInfoDialog() {
+        if (getContext() == null) return;
+        
+        android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(getContext());
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_travel_info, null);
+        builder.setView(dialogView);
+        
+        android.widget.EditText editTravelDays = dialogView.findViewById(R.id.edit_travel_days);
+        android.widget.DatePicker datePicker = dialogView.findViewById(R.id.date_picker_start);
+        
+        // 기존 여행 정보로 초기화
+        if (travelDays > 0) {
+            editTravelDays.setText(String.valueOf(travelDays));
+        }
+        if (startDate != null) {
+            Calendar cal = Calendar.getInstance();
+            cal.setTime(startDate);
+            datePicker.updateDate(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH));
+        }
+        
+        String dialogTitle = (editPostId != null) ? "여행 일정 변경" : "여행 일정 설정";
+        android.app.AlertDialog dialog = builder.setTitle(dialogTitle)
+                .setPositiveButton("확인", null) // 나중에 처리하기 위해 null로 설정
+                .setNegativeButton("취소", null)
+                .create();
+        
+        // 확인 버튼 클릭 시 처리
+        dialog.setOnShowListener(d -> {
+            android.widget.Button positiveButton = dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE);
+            positiveButton.setOnClickListener(v -> {
+                String daysStr = editTravelDays.getText().toString();
+                if (daysStr.isEmpty()) {
+                    Toast.makeText(getContext(), "여행 일수를 입력해주세요.", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                
+                int newTravelDays = Integer.parseInt(daysStr);
+                if (newTravelDays <= 0) {
+                    Toast.makeText(getContext(), "여행 일수는 1일 이상이어야 합니다.", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                
+                // 날짜 선택
+                Calendar calendar = Calendar.getInstance();
+                calendar.set(datePicker.getYear(), datePicker.getMonth(), datePicker.getDayOfMonth());
+                Date newStartDate = calendar.getTime();
+                
+                // 확인 다이얼로그 표시
+                showTravelInfoConfirmationDialog(newStartDate, newTravelDays, dialog);
+            });
+            
+            android.widget.Button negativeButton = dialog.getButton(android.app.AlertDialog.BUTTON_NEGATIVE);
+            negativeButton.setOnClickListener(v -> {
+                dialog.dismiss();
+            });
+        });
+        
+        dialog.show();
+    }
+    
+    /**
+     * 여행 기간 밖의 사진 제거
+     */
+    private void removePhotosOutsideTravelPeriod() {
+        if (startDate == null || travelDays <= 0) return;
+        
+        Calendar startCal = Calendar.getInstance();
+        startCal.setTime(startDate);
+        startCal.set(Calendar.HOUR_OF_DAY, 0);
+        startCal.set(Calendar.MINUTE, 0);
+        startCal.set(Calendar.SECOND, 0);
+        startCal.set(Calendar.MILLISECOND, 0);
+        
+        Calendar endCal = Calendar.getInstance();
+        endCal.setTime(startDate);
+        endCal.add(Calendar.DAY_OF_MONTH, travelDays - 1);
+        endCal.set(Calendar.HOUR_OF_DAY, 23);
+        endCal.set(Calendar.MINUTE, 59);
+        endCal.set(Calendar.SECOND, 59);
+        endCal.set(Calendar.MILLISECOND, 999);
+        
+        List<PhotoInfo> photosToRemove = new ArrayList<>();
+        for (PhotoInfo photoInfo : photoInfoList) {
+            if (photoInfo.getPhotoDate() != null) {
+                Calendar photoCal = Calendar.getInstance();
+                photoCal.setTime(photoInfo.getPhotoDate());
+                photoCal.set(Calendar.HOUR_OF_DAY, 0);
+                photoCal.set(Calendar.MINUTE, 0);
+                photoCal.set(Calendar.SECOND, 0);
+                photoCal.set(Calendar.MILLISECOND, 0);
+                
+                if (photoCal.getTimeInMillis() < startCal.getTimeInMillis() || 
+                    photoCal.getTimeInMillis() > endCal.getTimeInMillis()) {
+                    photosToRemove.add(photoInfo);
+                }
+            }
+        }
+        
+        if (!photosToRemove.isEmpty()) {
+            photoInfoList.removeAll(photosToRemove);
+            photoAdapter.updateAdapterItems();
+            Toast.makeText(getContext(), photosToRemove.size() + "장의 사진이 여행 기간 밖에 촬영되어 제거되었습니다.", Toast.LENGTH_LONG).show();
+        }
+    }
+    
+    /**
+     * 여행 정보 확인 다이얼로그 표시
+     */
+    private void showTravelInfoConfirmationDialog(Date newStartDate, int newTravelDays, android.app.AlertDialog previousDialog) {
+        if (getContext() == null) return;
+        
+        // 종료일 계산
+        Calendar endCal = Calendar.getInstance();
+        endCal.setTime(newStartDate);
+        endCal.add(Calendar.DAY_OF_MONTH, newTravelDays - 1);
+        
+        // 날짜 포맷팅
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy년 MM월 dd일", Locale.getDefault());
+        String startDateStr = sdf.format(newStartDate);
+        String endDateStr = sdf.format(endCal.getTime());
+        
+        // X박X일 계산
+        int nights = newTravelDays - 1;
+        String message = startDateStr + "부터 " + endDateStr + "까지(" + nights + "박" + newTravelDays + "일, " + newTravelDays + "일차) 여행이 맞습니까?";
+        
+        new android.app.AlertDialog.Builder(getContext())
+                .setTitle("여행 일정 확인")
+                .setMessage(message)
+                .setPositiveButton("맞습니다", (d, which) -> {
+                    // 여행 정보 업데이트
+                    startDate = newStartDate;
+                    travelDays = newTravelDays;
+                    
+                    // 기존 사진들의 일차 재계산
+                    for (PhotoInfo photoInfo : photoInfoList) {
+                        calculateDayNumber(photoInfo);
+                    }
+                    
+                    // 일차별로 정렬하여 어댑터 업데이트
+                    sortPhotosByDay();
+                    photoAdapter.updateAdapterItems();
+                    
+                    // 여행 기간 밖의 사진이 있는지 확인하고 제거
+                    removePhotosOutsideTravelPeriod();
+                    
+                    Toast.makeText(getContext(), "여행 일정이 변경되었습니다.", Toast.LENGTH_SHORT).show();
+                    previousDialog.dismiss();
+                })
+                .setNegativeButton("수정하기", (d, which) -> {
+                    // 수정하기를 누르면 이전 다이얼로그는 그대로 유지 (아무것도 안 함)
+                })
+                .setCancelable(false)
+                .show();
     }
 }
 

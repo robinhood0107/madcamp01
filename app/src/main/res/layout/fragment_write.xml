@@ -26,6 +26,14 @@
         android:layout_marginTop="8dp"
         android:text="사진 추가하기" />
 
+    <Button
+        android:id="@+id/btn_change_travel_info"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="여행 일짜 변경"
+        android:visibility="gone" />
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recycler_photos"
         android:layout_width="match_parent"
