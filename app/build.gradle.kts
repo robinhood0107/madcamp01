@@ -36,7 +36,10 @@ android {
 }
 
 dependencies {
-
+    // Google Maps SDK
+    implementation("com.google.android.gms:play-services-maps:18.2.0")
+    // Google Maps Utility Library (클러스터링용)
+    implementation("com.google.maps.android:android-maps-utils:3.8.2")
     implementation(libs.appcompat)
     implementation(libs.material)
     implementation(libs.activity)
@@ -44,6 +47,7 @@ dependencies {
     implementation(libs.firebase.auth)
     implementation(libs.firebase.database)
     implementation(libs.firebase.appcheck.debug)
+    implementation(libs.play.services.maps)
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
