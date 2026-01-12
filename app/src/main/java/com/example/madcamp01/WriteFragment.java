@@ -820,7 +820,21 @@ public class WriteFragment extends Fragment {
         if (!indicesToRemove.isEmpty()) {
             Toast.makeText(getContext(), indicesToRemove.size() + "장의 사진이 여행 기간 밖에 촬영되어 저장되지 않았습니다.", Toast.LENGTH_LONG).show();
         }
+        List<String> countries = new ArrayList<>();
+        List<String> cities = new ArrayList<>();
 
+        int photoCount = currentPostItem.getPhotoCount();
+        for (int i = 0; i < photoCount; i++) {
+            double lat = currentPostItem.getImageLatitude(i);
+            double lon = currentPostItem.getImageLongitude(i);
+
+            // 미리 만들어두신 getCountryAndCity 함수 활용
+            String[] locationInfo = getCountryAndCity(lat, lon);
+            countries.add(locationInfo[0]); // 국가명
+            cities.add(locationInfo[1]);    // 도시명
+        }
+
+        // Firestore에 리스트 형태로 저장
         Map<String, Object> post = new HashMap<>();
         post.put("title", currentPostItem.getTitle());
         post.put("images", currentPostItem.getImages());
@@ -830,6 +844,8 @@ public class WriteFragment extends Fragment {
         post.put("imageLatitudes", currentPostItem.getImageLatitudes());
         post.put("imageLongitudes", currentPostItem.getImageLongitudes());
         post.put("imageLocations", currentPostItem.getImageLocations());
+        post.put("countries", countries);
+        post.put("cities", cities);
         post.put("startDate", currentPostItem.getStartDate());
         post.put("travelDays", currentPostItem.getTravelDays());
         post.put("isPublic", currentPostItem.getIsPublic());
@@ -878,6 +894,39 @@ public class WriteFragment extends Fragment {
         }
         return "주소 변환 실패";
     }
+    private String[] getCountryAndCity(double lat, double lon) {
+        String country = "정보 없음";
+        String city = "정보 없음";
+
+        if (lat != 0.0 || lon != 0.0) {
+            Geocoder geocoder = new Geocoder(getContext(), Locale.getDefault());
+            try {
+                List<Address> addresses = geocoder.getFromLocation(lat, lon, 1);
+                if (addresses != null && !addresses.isEmpty()) {
+                    Address address = addresses.get(0);
+
+                    // 국가명 추출
+                    country = address.getCountryName() != null ? address.getCountryName() : "알 수 없는 국가";
+
+                    // 도시명 추출 (시/도 또는 구/군)
+                    city = address.getLocality(); // 광역시, 시 (예: 서울특별시, 수원시)
+                    if (city == null || city.isEmpty()) {
+                        city = address.getAdminArea(); // 도 (예: 경기도, California)
+                    }
+                    if (city == null || city.isEmpty()) {
+                        city = address.getSubAdminArea();
+                    }
+                    if (city == null || city.isEmpty()) {
+                        city = "알 수 없는 도시";
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        return new String[]{country, city};
+    }
+
     private void goToMainList() {
         if (getActivity() != null) {
             ListFragment listFragment = new ListFragment();
