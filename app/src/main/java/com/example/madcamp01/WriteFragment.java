@@ -670,8 +670,23 @@ public class WriteFragment extends Fragment {
     // 메인 리스트 탭으로 이동하는 공통 함수
     private void goToMainList() {
         if (getActivity() != null) {
+            // 실제로 ListFragment로 교체
+            ListFragment listFragment = new ListFragment();
+            getActivity().getSupportFragmentManager().popBackStack(null, androidx.fragment.app.FragmentManager.POP_BACK_STACK_INCLUSIVE);
+            getActivity().getSupportFragmentManager().beginTransaction()
+                    .replace(R.id.fragment_container, listFragment)
+                    .commit();
+            
+            // 네비게이션 바 상태 업데이트
             BottomNavigationView bottomNav = getActivity().findViewById(R.id.bottom_navigation);
-            bottomNav.setSelectedItemId(R.id.nav_my_list);
+            if (bottomNav != null) {
+                bottomNav.getMenu().findItem(R.id.nav_my_list).setChecked(true);
+            }
+            
+            // 타이틀 업데이트
+            if (getActivity() instanceof androidx.appcompat.app.AppCompatActivity) {
+                ((androidx.appcompat.app.AppCompatActivity) getActivity()).setTitle("내 여행 리스트");
+            }
         }
     }
 
