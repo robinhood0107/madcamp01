@@ -6,16 +6,17 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
+import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.PopupMenu;
 import android.widget.ProgressBar;
 import android.widget.Toast;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
-import androidx.recyclerview.widget.GridLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
+import androidx.viewpager2.widget.ViewPager2;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -30,8 +31,12 @@ import java.util.List;
 
 public class GalleryFragment extends Fragment {
 
-    private RecyclerView recyclerView;
-    private PostAdapter adapter;
+    private ViewPager2 heroViewPager;
+    private HeroPostAdapter adapter;
+    private LinearLayout indicatorContainer;
+    private ImageButton btnPrev;
+    private ImageButton btnNext;
+    private TextView emptyStateText;
     private ProgressBar loadingProgressBar;
     private boolean isLoading = false;
     private boolean isInitialLoad = true;
@@ -53,14 +58,18 @@ public class GalleryFragment extends Fragment {
 
         db = FirebaseFirestore.getInstance();
         storage = FirebaseStorage.getInstance();
-        recyclerView = view.findViewById(R.id.recyclerView);
+        heroViewPager = view.findViewById(R.id.heroViewPager);
         loadingProgressBar = view.findViewById(R.id.loadingProgressBar);
-        Button btnSortDesc = view.findViewById(R.id.btn_sort_desc);
-        Button btnSortAsc = view.findViewById(R.id.btn_sort_asc);
+        indicatorContainer = view.findViewById(R.id.indicatorContainer);
+        btnPrev = view.findViewById(R.id.btnPrev);
+        btnNext = view.findViewById(R.id.btnNext);
+        emptyStateText = view.findViewById(R.id.emptyStateText);
+        ImageButton btnSortDesc = view.findViewById(R.id.btn_sort_desc);
+        ImageButton btnSortAsc = view.findViewById(R.id.btn_sort_asc);
 
-        recyclerView.setLayoutManager(new GridLayoutManager(view.getContext(), 2));
-        adapter = new PostAdapter(view.getContext(), false);
-        recyclerView.setAdapter(adapter);
+        adapter = new HeroPostAdapter(view.getContext());
+        heroViewPager.setAdapter(adapter);
+        heroViewPager.setOffscreenPageLimit(2);
 
         adapter.setOnItemClickListener(item -> {
             DetailFragment detailFragment = new DetailFragment();
@@ -76,13 +85,25 @@ public class GalleryFragment extends Fragment {
 
         adapter.setOnItemLongClickListener(this::showPopupMenu);
 
-        recyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+        heroViewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
             @Override
-            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
-                if (!isLoading && !recyclerView.canScrollVertically(1)) {
+            public void onPageSelected(int position) {
+                super.onPageSelected(position);
+                updateIndicators(position);
+                if (!isLoading && position >= adapter.getItemCount() - 2) {
                     loadMoreData(false);
                 }
             }
+        });
+
+        btnPrev.setOnClickListener(v -> {
+            int prev = heroViewPager.getCurrentItem() - 1;
+            if (prev >= 0) heroViewPager.setCurrentItem(prev, true);
+        });
+
+        btnNext.setOnClickListener(v -> {
+            int next = heroViewPager.getCurrentItem() + 1;
+            if (next < adapter.getItemCount()) heroViewPager.setCurrentItem(next, true);
         });
 
         btnSortDesc.setOnClickListener(v -> {
@@ -94,6 +115,9 @@ public class GalleryFragment extends Fragment {
             sortDirection = Query.Direction.ASCENDING;
             loadMoreData(true);
         });
+
+        // 초기 진입 시 바로 로드 (onResume 대기 없이)
+        loadMoreData(true);
     }
 
     @Override
@@ -240,6 +264,7 @@ public class GalleryFragment extends Fragment {
             adapter.clearPosts();
             lastVisible = null;
             loadingProgressBar.setVisibility(View.VISIBLE);
+            indicatorContainer.removeAllViews();
         }
 
         // 쿼리에서 정확한 필드 이름인 "isPublic"을 사용합니다.
@@ -256,11 +281,18 @@ public class GalleryFragment extends Fragment {
             if (!isAdded()) return;
 
             if (!queryDocumentSnapshots.isEmpty()) {
+                emptyStateText.setVisibility(View.GONE);
                 List<PostItem> newPosts = queryDocumentSnapshots.toObjects(PostItem.class);
-                adapter.addPostList(newPosts);
+                List<DocumentSnapshot> snapshots = new ArrayList<>();
+                for (DocumentSnapshot doc : queryDocumentSnapshots.getDocuments()) {
+                    snapshots.add(doc);
+                }
+                Log.d("GalleryFragment", "Loaded posts: " + newPosts.size());
+                adapter.addPostList(newPosts, snapshots);
                 lastVisible = queryDocumentSnapshots.getDocuments().get(queryDocumentSnapshots.size() - 1);
+                buildIndicators(adapter.getItemCount());
             } else if (lastVisible == null) {
-                Toast.makeText(getContext(), "공유된 게시물이 아직 없습니다.", Toast.LENGTH_LONG).show();
+                emptyStateText.setVisibility(View.VISIBLE);
             }
             isLoading = false;
         }).addOnFailureListener(e -> {
@@ -270,5 +302,34 @@ public class GalleryFragment extends Fragment {
             Toast.makeText(getContext(), "갤러리를 불러오는 중 오류가 발생했습니다.", Toast.LENGTH_SHORT).show();
             isLoading = false;
         });
+    }
+
+    private void buildIndicators(int count) {
+        if (indicatorContainer == null || count <= 0) return;
+        indicatorContainer.removeAllViews();
+        for (int i = 0; i < count; i++) {
+            View dot = new View(getContext());
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(12, 12);
+            lp.setMargins(8, 0, 8, 0);
+            dot.setLayoutParams(lp);
+            dot.setBackgroundResource(R.drawable.indicator_dot_inactive);
+            final int position = i;
+            dot.setOnClickListener(v -> {
+                if (heroViewPager != null) {
+                    heroViewPager.setCurrentItem(position, true);
+                }
+            });
+            indicatorContainer.addView(dot);
+        }
+        updateIndicators(heroViewPager.getCurrentItem());
+    }
+
+    private void updateIndicators(int activeIndex) {
+        if (indicatorContainer == null) return;
+        int childCount = indicatorContainer.getChildCount();
+        for (int i = 0; i < childCount; i++) {
+            View dot = indicatorContainer.getChildAt(i);
+            dot.setBackgroundResource(i == activeIndex ? R.drawable.indicator_dot_active : R.drawable.indicator_dot_inactive);
+        }
     }
 }
