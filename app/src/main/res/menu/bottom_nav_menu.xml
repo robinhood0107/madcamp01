@@ -13,7 +13,7 @@
     <item
             android:id="@+id/nav_sns_gallery"
             android:icon="@android:drawable/ic_menu_gallery"
-            android:title="sns 게시판" />
+            android:title="커뮤니티" />
     <item
             android:id="@+id/nav_my_page"
             android:icon="@android:drawable/ic_menu_gallery"
