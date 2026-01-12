@@ -16,17 +16,18 @@ import com.bumptech.glide.Glide;
 import java.util.ArrayList;
 import java.util.List;
 
-// 일차별로 그룹화된 사진 어댑터
+/**
+ * 일차별로 그룹화하여 사진을 표시하는 RecyclerView 어댑터.
+ */
 public class PhotoAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     private static final int TYPE_HEADER = 0;
     private static final int TYPE_PHOTO = 1;
 
-    private List<PhotoInfo> photoInfoList;
+    private PostItem postItem;
     private List<AdapterItem> adapterItems; // 헤더와 사진을 함께 담는 리스트
     private Context context;
     
-    // 삭제 클릭 리스너 인터페이스
     public interface OnPhotoDeleteListener {
         void onDelete(int position);
     }
@@ -35,47 +36,52 @@ public class PhotoAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
         this.deleteListener = listener;
     }
     
-    // 어댑터 아이템 (헤더 또는 사진)
     private static class AdapterItem {
         int type;
         String dayNumber; // 헤더인 경우
-        PhotoInfo photoInfo; // 사진인 경우
+        int photoIndex; // 사진인 경우 (PostItem 내 인덱스)
         
-        AdapterItem(int type, String dayNumber, PhotoInfo photoInfo) {
+        AdapterItem(int type, String dayNumber, int photoIndex) {
             this.type = type;
             this.dayNumber = dayNumber;
-            this.photoInfo = photoInfo;
+            this.photoIndex = photoIndex;
         }
     }
     
-    // 생성자
-    public PhotoAdapter(List<PhotoInfo> photoInfoList, Context context) {
-        this.photoInfoList = photoInfoList;
+    public PhotoAdapter(PostItem postItem, Context context) {
+        this.postItem = postItem;
         this.context = context;
         this.adapterItems = new ArrayList<>();
         updateAdapterItems();
     }
     
-    // PhotoInfo 리스트가 변경되면 어댑터 아이템 업데이트
+    /**
+     * PostItem 참조를 업데이트 (수정 모드에서 PostItem이 변경될 때 호출).
+     */
+    public void setPostItem(PostItem postItem) {
+        this.postItem = postItem;
+        updateAdapterItems();
+    }
+    
     public void updateAdapterItems() {
         adapterItems.clear();
-        if (photoInfoList == null || photoInfoList.isEmpty()) {
+        if (postItem == null || postItem.getPhotoCount() == 0) {
             notifyDataSetChanged();
             return;
         }
         
         String currentDay = null;
-        for (PhotoInfo photoInfo : photoInfoList) {
-            String dayNumber = photoInfo.getDayNumber() != null ? photoInfo.getDayNumber() : "1";
+        int count = postItem.getPhotoCount();
+        for (int i = 0; i < count; i++) {
+            String dayNumber = postItem.getImageDay(i);
+            if (dayNumber == null) dayNumber = "1";
             
-            // 새로운 일차가 시작되면 헤더 추가
             if (!dayNumber.equals(currentDay)) {
-                adapterItems.add(new AdapterItem(TYPE_HEADER, dayNumber, null));
+                adapterItems.add(new AdapterItem(TYPE_HEADER, dayNumber, -1));
                 currentDay = dayNumber;
             }
             
-            // 사진 추가
-            adapterItems.add(new AdapterItem(TYPE_PHOTO, null, photoInfo));
+            adapterItems.add(new AdapterItem(TYPE_PHOTO, null, i));
         }
         notifyDataSetChanged();
     }
@@ -106,24 +112,22 @@ public class PhotoAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
             headerHolder.tvDayNumber.setText(item.dayNumber + "일차");
         } else {
             PhotoViewHolder photoHolder = (PhotoViewHolder) holder;
-            PhotoInfo photoInfo = item.photoInfo;
+            int photoIndex = item.photoIndex;
             
-            // 이미지 로드 (URI 또는 URL)
-            Uri uri = photoInfo.getUri();
-            if (photoInfo.getImageUrl() != null && photoInfo.getImageUrl().startsWith("http")) {
-                Glide.with(context).load(photoInfo.getImageUrl()).into(photoHolder.ivPhoto);
+            Uri uri = postItem.getImageUri(photoIndex);
+            String imageUrl = postItem.getImageUrl(photoIndex);
+            
+            if (imageUrl != null && !imageUrl.isEmpty() && imageUrl.startsWith("http")) {
+                Glide.with(context).load(imageUrl).into(photoHolder.ivPhoto);
             } else if (uri != null) {
                 Glide.with(context).load(uri).into(photoHolder.ivPhoto);
+            } else if (imageUrl != null && !imageUrl.isEmpty()) {
+                Glide.with(context).load(imageUrl).into(photoHolder.ivPhoto);
             }
             
-            // 사진 클릭시 삭제
             photoHolder.btnDeletePhoto.setOnClickListener(v -> {
                 if (deleteListener != null) {
-                    // 실제 PhotoInfo 리스트에서의 위치 찾기
-                    int actualPosition = photoInfoList.indexOf(photoInfo);
-                    if (actualPosition != -1) {
-                        deleteListener.onDelete(actualPosition);
-                    }
+                    deleteListener.onDelete(photoIndex);
                 }
             });
         }
@@ -134,7 +138,6 @@ public class PhotoAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
         return adapterItems != null ? adapterItems.size() : 0;
     }
 
-    // 일차 헤더 ViewHolder
     static class DayHeaderViewHolder extends RecyclerView.ViewHolder {
         TextView tvDayNumber;
         
@@ -144,7 +147,6 @@ public class PhotoAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
         }
     }
 
-    // 사진 ViewHolder
     static class PhotoViewHolder extends RecyclerView.ViewHolder {
         ImageView ivPhoto;
         ImageView btnDeletePhoto;
