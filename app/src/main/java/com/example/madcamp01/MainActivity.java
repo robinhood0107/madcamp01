@@ -138,18 +138,20 @@ public class MainActivity extends AppCompatActivity {
                 }
 
                 if (selectedFragment != null) {
-                    // 백스택 정리
-                    getSupportFragmentManager().popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
-                    
-                    // 프래그먼트 교체
-                    getSupportFragmentManager().beginTransaction()
+                    // [수정 핵심 1] 백스택에 상세화면(지도/상세글)이 있다면 먼저 모두 팝(Pop) 시킵니다.
+                    // 바로 popBackStack을 호출하는 대신, 즉시 실행하지 않고 안전하게 비웁니다.
+                    FragmentManager fm = getSupportFragmentManager();
+                    if (fm.getBackStackEntryCount() > 0) {
+                        fm.popBackStackImmediate(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
+                    }
+
+                    // [수정 핵심 2] 프래그먼트 교체
+                    fm.beginTransaction()
+                            .setCustomAnimations(android.R.anim.fade_in, android.R.anim.fade_out) // 전환 애니메이션 추가로 안정성 확보
                             .replace(R.id.fragment_container, selectedFragment)
-                            .commit();
-                    
-                    // 타이틀 설정
+                            .commitNowAllowingStateLoss(); // 상태 손실을 허용하며 즉시 실행
+
                     setTitle(title);
-                    
-                    // 네비게이션 바 상태 업데이트 (명시적으로 설정)
                     bottomNav.getMenu().findItem(itemId).setChecked(true);
                 }
             }

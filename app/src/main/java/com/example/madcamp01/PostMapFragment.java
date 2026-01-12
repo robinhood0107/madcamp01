@@ -151,5 +151,14 @@ public class PostMapFragment extends Fragment implements OnMapReadyCallback {
                     Log.e("MapDebug", "게시물 상세 정보 로드 실패", e);
                 });
     }
+    @Override
+    public void onDestroyView() {
+        if (mMap != null) {
+            mMap.clear();
+            mMap.setOnCameraIdleListener(null);
+            mMap.setOnMarkerClickListener(null);
+        }
+        super.onDestroyView();
+    }
 
 }
