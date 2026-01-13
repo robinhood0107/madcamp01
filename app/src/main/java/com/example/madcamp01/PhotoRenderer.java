@@ -2,9 +2,11 @@ package com.example.madcamp01;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.BitmapShader;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Rect;
+import android.graphics.Shader;
 import android.graphics.drawable.Drawable;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -27,13 +29,24 @@ public class PhotoRenderer extends DefaultClusterRenderer<PhotoItem> {
     private static final int MAX_BADGE_COUNT = 9;
     
     private final Context context;
+    private final boolean disableClustering;
     
     protected boolean shouldRenderAsCluster(@NonNull Cluster<PhotoItem> cluster) {
+        // 클러스터링이 비활성화된 경우 항상 false 반환 (개별 마커만 표시)
+        if (disableClustering) {
+            return false;
+        }
         return cluster.getSize() > 1;
     }
+    
     public PhotoRenderer(Context context, GoogleMap map, ClusterManager<PhotoItem> clusterManager) {
+        this(context, map, clusterManager, false);
+    }
+    
+    public PhotoRenderer(Context context, GoogleMap map, ClusterManager<PhotoItem> clusterManager, boolean disableClustering) {
         super(context, map, clusterManager);
         this.context = context;
+        this.disableClustering = disableClustering;
     }
 
     // 개별 마커(사진 하나)를 사진으로 표시
@@ -64,10 +77,17 @@ public class PhotoRenderer extends DefaultClusterRenderer<PhotoItem> {
     }
 
     private void loadMarkerImageWithBadge(String url, Marker marker, int count) {
+        if (url == null || url.isEmpty()) {
+            return;
+        }
+        
+        // Glide는 기본적으로 EXIF orientation을 자동으로 처리합니다
+        // asBitmap()을 사용할 때도 EXIF orientation이 처리되도록 설정
         RequestOptions options = new RequestOptions()
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .override(MARKER_SIZE, MARKER_SIZE)
-                .circleCrop();
+                .centerCrop()
+                .error(R.drawable.ic_placeholder); // 에러 시 플레이스홀더
 
         Glide.with(context)
                 .asBitmap()
@@ -78,18 +98,97 @@ public class PhotoRenderer extends DefaultClusterRenderer<PhotoItem> {
                 .into(new CustomTarget<Bitmap>() {
                     @Override
                     public void onResourceReady(@NonNull Bitmap resource, @Nullable Transition<? super Bitmap> transition) {
-                        Bitmap finalBitmap = resource;
-                        // 2개 이상일 때만 배지 추가
-                        if (count > 1) {
-                            finalBitmap = addBadgeToBitmap(resource, count);
+                        if (resource == null || resource.isRecycled()) {
+                            return;
                         }
-                        marker.setIcon(BitmapDescriptorFactory.fromBitmap(finalBitmap));
+                        
+                        try {
+                            // 썸네일은 이미 EXIF orientation 보정이 되어 있으므로 바로 원형으로 변환
+                            Bitmap circularBitmap = makeCircularBitmap(resource);
+                            if (circularBitmap == null) {
+                                return;
+                            }
+                            
+                            Bitmap finalBitmap = circularBitmap;
+                            // 2개 이상일 때만 배지 추가
+                            if (count > 1) {
+                                finalBitmap = addBadgeToBitmap(circularBitmap, count);
+                                if (finalBitmap != circularBitmap && !circularBitmap.isRecycled()) {
+                                    circularBitmap.recycle();
+                                }
+                            }
+                            
+                            if (finalBitmap != null && !finalBitmap.isRecycled()) {
+                                marker.setIcon(BitmapDescriptorFactory.fromBitmap(finalBitmap));
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
                     }
+                    
                     @Override
                     public void onLoadCleared(@Nullable Drawable placeholder) {}
+                    
+                    @Override
+                    public void onLoadFailed(@Nullable Drawable errorDrawable) {
+                        // 로드 실패 시 기본 마커 사용
+                        super.onLoadFailed(errorDrawable);
+                    }
                 });
     }
-
+    
+    /**
+     * 비트맵을 원형으로 변환
+     */
+    private Bitmap makeCircularBitmap(Bitmap bitmap) {
+        if (bitmap == null || bitmap.isRecycled()) {
+            return null;
+        }
+        
+        try {
+            int width = bitmap.getWidth();
+            int height = bitmap.getHeight();
+            int size = Math.min(width, height);
+            
+            // 정사각형 비트맵 생성
+            Bitmap output = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+            if (output == null) {
+                return null;
+            }
+            
+            Canvas canvas = new Canvas(output);
+            
+            // 원형 마스크를 위한 Paint
+            Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            paint.setShader(new BitmapShader(bitmap, 
+                    Shader.TileMode.CLAMP, 
+                    Shader.TileMode.CLAMP));
+            
+            // 중앙에서 원형으로 그리기
+            float radius = size / 2f;
+            float centerX = size / 2f;
+            float centerY = size / 2f;
+            
+            // 비트맵이 정사각형이 아닌 경우 중앙에서 크롭
+            if (width != height) {
+                float scale = Math.max((float)size / width, (float)size / height);
+                canvas.save();
+                canvas.scale(scale, scale, centerX, centerY);
+            }
+            
+            canvas.drawCircle(centerX, centerY, radius, paint);
+            
+            if (width != height) {
+                canvas.restore();
+            }
+            
+            return output;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+    
     /**
      * 썸네일 이미지 우상단에 개수 배지 추가
      */

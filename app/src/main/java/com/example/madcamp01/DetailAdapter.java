@@ -322,7 +322,8 @@ public class DetailAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
             googleMap.getUiSettings().setMapToolbarEnabled(false);
             
             holder.clusterManager = new ClusterManager<>(context, googleMap);
-            PhotoRenderer renderer = new PhotoRenderer(context, googleMap, holder.clusterManager);
+            // DetailFragment에서는 클러스터링 비활성화하여 마커가 항상 개별적으로 표시되도록 함
+            PhotoRenderer renderer = new PhotoRenderer(context, googleMap, holder.clusterManager, true);
             holder.clusterManager.setRenderer(renderer);
             
             googleMap.setOnCameraIdleListener(holder.clusterManager);
@@ -331,9 +332,10 @@ public class DetailAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
             List<LatLng> allLocations = new ArrayList<>();
             List<LatLng> firstDayLocations = new ArrayList<>();
             PolylineOptions polylineOptions = new PolylineOptions()
-                    .width(10)
-                    .color(0xFFFF0000) // 빨간색으로 변경
-                    .geodesic(true);
+                    .width(8)
+                    .color(0xFF3B82F6) // 파란색으로 변경
+                    .geodesic(true)
+                    .zIndex(1);
             
             int photoCount = postItem.getPhotoCount();
             String postId = postItem.getDocumentId() != null ? postItem.getDocumentId() : "unknown";
@@ -348,7 +350,13 @@ public class DetailAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
                     
                     String day = postItem.getImageDay(i) != null ? postItem.getImageDay(i) : "1";
                     if ("1".equals(day)) firstDayLocations.add(location);
-                    String imageUrl = postItem.getImageThumbnailUrl(i) != null ? postItem.getImageThumbnailUrl(i) : postItem.getImageUrl(i);
+                    
+                    // 원본 이미지 URL 사용
+                    String imageUrl = postItem.getImageUrl(i);
+                    if (imageUrl == null || imageUrl.isEmpty()) {
+                        imageUrl = postItem.getImageThumbnailUrl(i);
+                    }
+                    
                     if (imageUrl != null && !imageUrl.isEmpty()) {
                         PhotoItem photoItem = new PhotoItem(latitude, longitude, imageUrl, postId);
                         holder.clusterManager.addItem(photoItem);

@@ -1,15 +1,20 @@
 package com.example.madcamp01;
 
+import android.Manifest;
 import android.content.ContentResolver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.location.Address;
 import android.location.Geocoder;
 import android.media.ExifInterface;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
+import android.provider.Settings;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -17,6 +22,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -64,6 +70,7 @@ public class WriteFragment extends Fragment {
     private FirebaseFirestore db = FirebaseFirestore.getInstance();
     private FirebaseStorage storage = FirebaseStorage.getInstance();
     private ActivityResultLauncher<String> getMultipleContents;
+    private ActivityResultLauncher<String[]> requestPermissionLauncher;
     private FirebaseAuth auth;
     private androidx.appcompat.app.AlertDialog progressDialog;
     private com.google.android.material.materialswitch.MaterialSwitch switchIsPublic;
@@ -97,6 +104,34 @@ public class WriteFragment extends Fragment {
                     }
                 }
         );
+        
+        requestPermissionLauncher = registerForActivityResult(
+                new ActivityResultContracts.RequestMultiplePermissions(),
+                permissions -> {
+                    boolean allGranted = true;
+                    boolean shouldShowRationale = false;
+                    
+                    for (String permission : permissions.keySet()) {
+                        Boolean granted = permissions.get(permission);
+                        if (granted == null || !granted) {
+                            allGranted = false;
+                            // 사용자가 "다시 묻지 않음"을 선택했는지 확인
+                            if (getContext() != null && shouldShowRequestPermissionRationale(permission)) {
+                                shouldShowRationale = true;
+                            }
+                        }
+                    }
+                    
+                    if (allGranted) {
+                        // 권한이 모두 허용되면 이미지 선택기 실행
+                        getMultipleContents.launch("image/*");
+                    } else {
+                        // 권한이 거부되면 설정 화면으로 이동하도록 안내
+                        showPermissionDeniedDialog(shouldShowRationale);
+                    }
+                }
+        );
+        
         auth = FirebaseAuth.getInstance();
     }
     
@@ -198,7 +233,7 @@ public class WriteFragment extends Fragment {
         updateTravelPeriodText();
         
         btnAddPhoto.setOnClickListener(v -> {
-            getMultipleContents.launch("image/*");
+            checkAndRequestMediaPermissions();
         });
 
         btnChangeTravelInfo.setOnClickListener(v -> {
@@ -617,6 +652,73 @@ public class WriteFragment extends Fragment {
     /**
      * 특정 인덱스의 사진을 Firebase Storage에 업로드하고 썸네일을 생성하여 업로드.
      */
+    /**
+     * 미디어 권한을 확인하고 필요시 요청합니다.
+     * Android 13 (API 33) 이상: READ_MEDIA_IMAGES, READ_MEDIA_VIDEO
+     * Android 12 이하: READ_EXTERNAL_STORAGE
+     */
+    private void checkAndRequestMediaPermissions() {
+        if (getContext() == null) {
+            return;
+        }
+        
+        List<String> permissionsToRequest = new ArrayList<>();
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Android 13 이상
+            if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.READ_MEDIA_IMAGES) 
+                    != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.READ_MEDIA_IMAGES);
+            }
+            if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.READ_MEDIA_VIDEO) 
+                    != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.READ_MEDIA_VIDEO);
+            }
+        } else {
+            // Android 12 이하
+            if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.READ_EXTERNAL_STORAGE) 
+                    != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.READ_EXTERNAL_STORAGE);
+            }
+        }
+        
+        if (permissionsToRequest.isEmpty()) {
+            // 모든 권한이 이미 허용되어 있으면 이미지 선택기 실행
+            getMultipleContents.launch("image/*");
+        } else {
+            // 권한 요청
+            requestPermissionLauncher.launch(permissionsToRequest.toArray(new String[0]));
+        }
+    }
+    
+    /**
+     * 권한이 거부되었을 때 설정 화면으로 이동하도록 안내하는 다이얼로그를 표시합니다.
+     */
+    private void showPermissionDeniedDialog(boolean canRequestAgain) {
+        if (getContext() == null) {
+            return;
+        }
+        
+        androidx.appcompat.app.AlertDialog.Builder builder = 
+            new androidx.appcompat.app.AlertDialog.Builder(getContext());
+        
+        builder.setTitle("권한 필요")
+            .setMessage("사진 및 동영상을 선택하려면 저장소 접근 권한이 필요합니다.\n\n" +
+                       "설정에서 권한을 허용해주세요.")
+            .setPositiveButton("설정으로 이동", (dialog, which) -> {
+                // 앱 설정 화면으로 이동
+                Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                Uri uri = Uri.fromParts("package", getContext().getPackageName(), null);
+                intent.setData(uri);
+                startActivity(intent);
+            })
+            .setNegativeButton("취소", (dialog, which) -> {
+                dialog.dismiss();
+            })
+            .setCancelable(true)
+            .show();
+    }
+    
     private void uploadPhotoWithThumbnail(int index, UploadCallback callback) {
         try {
             Uri uri = currentPostItem.getImageUri(index);
@@ -653,7 +755,6 @@ public class WriteFragment extends Fragment {
             callback.onError(e.getMessage());
         }
     }
-    
     /**
      * 특정 인덱스의 사진으로부터 썸네일을 생성하고 Firebase Storage에 업로드.
      */

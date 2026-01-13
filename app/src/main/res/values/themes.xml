@@ -2,7 +2,12 @@
     <!-- Base application theme. -->
     <style name="Base.Theme.Madcamp01" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+        <item name="colorPrimary">#6B7280</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorPrimaryContainer">#F3F4F6</item>
+        <item name="colorOnPrimaryContainer">#111827</item>
+        <item name="colorSurface">#FFFFFF</item>
+        <item name="colorOnSurface">#111827</item>
     </style>
 
     <style name="Theme.Madcamp01" parent="Base.Theme.Madcamp01" />

@@ -2,6 +2,11 @@
     <!-- Base application theme. -->
     <style name="Base.Theme.Madcamp01" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Customize your dark theme here. -->
-        <!-- <item name="colorPrimary">@color/my_dark_primary</item> -->
+        <item name="colorPrimary">#9CA3AF</item>
+        <item name="colorOnPrimary">#000000</item>
+        <item name="colorPrimaryContainer">#374151</item>
+        <item name="colorOnPrimaryContainer">#FFFFFF</item>
+        <item name="colorSurface">#111827</item>
+        <item name="colorOnSurface">#FFFFFF</item>
     </style>
 </resources>
