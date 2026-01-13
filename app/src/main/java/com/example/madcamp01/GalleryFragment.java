@@ -6,6 +6,8 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.EditorInfo;
+import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
@@ -38,8 +40,11 @@ public class GalleryFragment extends Fragment {
     private ImageButton btnNext;
     private TextView emptyStateText;
     private ProgressBar loadingProgressBar;
+    private EditText etSearch;
+    private ImageButton btnSearch;
+    
     private boolean isLoading = false;
-    private boolean isInitialLoad = true;
+    private String currentSearchQuery = "";
 
     private FirebaseFirestore db;
     private FirebaseStorage storage;
@@ -64,6 +69,9 @@ public class GalleryFragment extends Fragment {
         btnPrev = view.findViewById(R.id.btnPrev);
         btnNext = view.findViewById(R.id.btnNext);
         emptyStateText = view.findViewById(R.id.emptyStateText);
+        etSearch = view.findViewById(R.id.etSearch);
+        btnSearch = view.findViewById(R.id.btnSearch);
+        
         ImageButton btnSortDesc = view.findViewById(R.id.btn_sort_desc);
         ImageButton btnSortAsc = view.findViewById(R.id.btn_sort_asc);
 
@@ -77,9 +85,9 @@ public class GalleryFragment extends Fragment {
             args.putParcelable("postData", item);
             detailFragment.setArguments(args);
             requireActivity().getSupportFragmentManager().beginTransaction()
-                    .add(R.id.fragment_container, detailFragment) // 기존 화면 위에 추가
-                    .hide(this) // 현재 화면(갤러리)은 잠시 숨김
-                    .addToBackStack(null) // 뒤로 가기 가능하게 설정
+                    .add(R.id.fragment_container, detailFragment)
+                    .hide(this)
+                    .addToBackStack(null)
                     .commit();
         });
 
@@ -90,7 +98,8 @@ public class GalleryFragment extends Fragment {
             public void onPageSelected(int position) {
                 super.onPageSelected(position);
                 updateIndicators(position);
-                if (!isLoading && position >= adapter.getItemCount() - 2) {
+                // 검색 중이 아닐 때만 페이징 로드 (검색 시에는 전체 결과를 한번에 보여주거나 별도 처리)
+                if (currentSearchQuery.isEmpty() && !isLoading && position >= adapter.getItemCount() - 2) {
                     loadMoreData(false);
                 }
             }
@@ -108,40 +117,177 @@ public class GalleryFragment extends Fragment {
 
         btnSortDesc.setOnClickListener(v -> {
             sortDirection = Query.Direction.DESCENDING;
-            loadMoreData(true);
+            performSearch(currentSearchQuery);
         });
 
         btnSortAsc.setOnClickListener(v -> {
             sortDirection = Query.Direction.ASCENDING;
-            loadMoreData(true);
+            performSearch(currentSearchQuery);
         });
 
-        // 초기 진입 시 바로 로드 (onResume 대기 없이)
+        // 검색 버튼 클릭 리스너
+        btnSearch.setOnClickListener(v -> {
+            performSearch(etSearch.getText().toString().trim());
+        });
+
+        // 키보드 검색 버튼 리스너
+        etSearch.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                performSearch(etSearch.getText().toString().trim());
+                return true;
+            }
+            return false;
+        });
+
         loadMoreData(true);
     }
 
-    @Override
-    public void onResume() {
-        super.onResume();
-        // 어댑터에 데이터가 하나도 없는 경우에만 로드하도록 변경
-        if (adapter == null || adapter.getItemCount() == 0) {
-            loadMoreData(true);
+    private void performSearch(String query) {
+        currentSearchQuery = query;
+        loadMoreData(true);
+    }
+
+    private void loadMoreData(boolean isRefresh) {
+        if (isLoading) return;
+        isLoading = true;
+
+        if (isRefresh) {
+            adapter.clearPosts();
+            lastVisible = null;
+            loadingProgressBar.setVisibility(View.VISIBLE);
+            indicatorContainer.removeAllViews();
+        }
+
+        Query query;
+        if (currentSearchQuery.isEmpty()) {
+            // 일반 모드: 최신순/오래된순 페이징 로드
+            query = db.collection("TravelPosts")
+                    .whereEqualTo("isPublic", true)
+                    .orderBy("createdAt", sortDirection);
+            
+            if (lastVisible != null) {
+                query = query.startAfter(lastVisible);
+            }
+            query = query.limit(LIMIT);
+            
+            query.get().addOnSuccessListener(queryDocumentSnapshots -> {
+                processQueryResults(queryDocumentSnapshots.getDocuments(), isRefresh);
+                if (!queryDocumentSnapshots.isEmpty()) {
+                    lastVisible = queryDocumentSnapshots.getDocuments().get(queryDocumentSnapshots.size() - 1);
+                }
+                isLoading = false;
+            }).addOnFailureListener(e -> {
+                handleLoadFailure(e);
+            });
+        } else {
+            // 검색 모드: 도시 또는 국가 리스트에 포함된 경우 검색
+            // Firestore의 array-contains 한계를 극복하기 위해 모든 공개 게시물을 가져와서 클라이언트 필터링
+            // (게시물이 아주 많아지면 Algolia나 별도의 검색 필드가 필요하지만, 현재 수준에선 적합한 방식)
+            db.collection("TravelPosts")
+                    .whereEqualTo("isPublic", true)
+                    .orderBy("createdAt", sortDirection)
+                    .get()
+                    .addOnSuccessListener(queryDocumentSnapshots -> {
+                        List<DocumentSnapshot> filteredDocs = new ArrayList<>();
+                        String lowerQuery = currentSearchQuery.toLowerCase();
+                        
+                        for (DocumentSnapshot doc : queryDocumentSnapshots.getDocuments()) {
+                            List<String> cities = (List<String>) doc.get("cities");
+                            List<String> countries = (List<String>) doc.get("countries");
+                            
+                            boolean match = false;
+                            if (cities != null) {
+                                for (String c : cities) {
+                                    if (c.toLowerCase().contains(lowerQuery)) { match = true; break; }
+                                }
+                            }
+                            if (!match && countries != null) {
+                                for (String c : countries) {
+                                    if (c.toLowerCase().contains(lowerQuery)) { match = true; break; }
+                                }
+                            }
+                            
+                            if (match) {
+                                filteredDocs.add(doc);
+                            }
+                        }
+                        processQueryResults(filteredDocs, isRefresh);
+                        isLoading = false;
+                    }).addOnFailureListener(e -> {
+                        handleLoadFailure(e);
+                    });
+        }
+    }
+
+    private void processQueryResults(List<DocumentSnapshot> documents, boolean isRefresh) {
+        loadingProgressBar.setVisibility(View.GONE);
+        if (!isAdded()) return;
+
+        if (!documents.isEmpty()) {
+            emptyStateText.setVisibility(View.GONE);
+            List<PostItem> newPosts = new ArrayList<>();
+            for (DocumentSnapshot doc : documents) {
+                newPosts.add(doc.toObject(PostItem.class));
+            }
+            adapter.addPostList(newPosts, documents);
+            buildIndicators(adapter.getItemCount());
+        } else if (isRefresh) {
+            emptyStateText.setVisibility(View.VISIBLE);
+            emptyStateText.setText(currentSearchQuery.isEmpty() ? "공유된 게시물이 아직 없습니다." : "'" + currentSearchQuery + "' 검색 결과가 없습니다.");
+        }
+    }
+
+    private void handleLoadFailure(Exception e) {
+        loadingProgressBar.setVisibility(View.GONE);
+        if (!isAdded()) return;
+        Log.e("GalleryFragment", "Error loading data", e);
+        Toast.makeText(getContext(), "데이터를 불러오는 중 오류가 발생했습니다.", Toast.LENGTH_SHORT).show();
+        isLoading = false;
+    }
+
+    private void buildIndicators(int count) {
+        if (indicatorContainer == null || count <= 0) return;
+        indicatorContainer.removeAllViews();
+        // 인디케이터가 너무 많아지면 UI가 깨질 수 있으므로 최대 개수 제한(예: 15개)
+        int displayCount = Math.min(count, 15);
+        for (int i = 0; i < displayCount; i++) {
+            View dot = new View(getContext());
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(12, 12);
+            lp.setMargins(8, 0, 8, 0);
+            dot.setLayoutParams(lp);
+            dot.setBackgroundResource(R.drawable.indicator_dot_inactive);
+            final int position = i;
+            dot.setOnClickListener(v -> {
+                if (heroViewPager != null) {
+                    heroViewPager.setCurrentItem(position, true);
+                }
+            });
+            indicatorContainer.addView(dot);
+        }
+        if (heroViewPager.getCurrentItem() < displayCount) {
+            updateIndicators(heroViewPager.getCurrentItem());
+        }
+    }
+
+    private void updateIndicators(int activeIndex) {
+        if (indicatorContainer == null) return;
+        int childCount = indicatorContainer.getChildCount();
+        for (int i = 0; i < childCount; i++) {
+            View dot = indicatorContainer.getChildAt(i);
+            dot.setBackgroundResource(i == activeIndex ? R.drawable.indicator_dot_active : R.drawable.indicator_dot_inactive);
         }
     }
 
     private void showPopupMenu(View anchorView, PostItem item) {
         if (getContext() == null) return;
-        // 현재 로그인한 사용자 정보 가져오기
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         String currentUserId = (currentUser != null) ? currentUser.getUid() : "";
 
         PopupMenu popup = new PopupMenu(getContext(), anchorView);
         popup.getMenuInflater().inflate(R.menu.post_context_menu, popup.getMenu());
 
-        // 권한 확인: 게시물의 userId와 현재 로그인한 UID 비교
         boolean isOwner = item.getUserId() != null && item.getUserId().equals(currentUserId);
 
-        // 본인이 아니면 '수정' 및 '삭제' 메뉴 숨기기
         if (!isOwner) {
             popup.getMenu().findItem(R.id.menu_edit).setVisible(false);
             popup.getMenu().findItem(R.id.menu_delete).setVisible(false);
@@ -150,25 +296,19 @@ public class GalleryFragment extends Fragment {
         popup.setOnMenuItemClickListener(menuItem -> {
             int itemId = menuItem.getItemId();
             if (itemId == R.id.menu_edit) {
-                // 1. WriteFragment 인스턴스 생성
                 WriteFragment writeFragment = new WriteFragment();
-
-                // 2. 수정을 위한 데이터 꾸러미(Bundle) 생성 및 전달
                 Bundle args = new Bundle();
-                args.putString("postId", item.getDocumentId()); // 문서 ID
-                args.putString("title", item.getTitle());       // 기존 제목
-                args.putStringArrayList("images", new ArrayList<>(item.getImages())); // 기존 이미지 리스트
-                args.putBoolean("isPublic", item.getIsPublic());   // 공개 여부
-                args.putParcelable("postItem", item); // PostItem 전체 전달
-
+                args.putString("postId", item.getDocumentId());
+                args.putString("title", item.getTitle());
+                args.putStringArrayList("images", new ArrayList<>(item.getImages()));
+                args.putBoolean("isPublic", item.getIsPublic());
+                args.putParcelable("postItem", item);
                 writeFragment.setArguments(args);
 
-                // 3. WriteFragment로 화면 전환
                 requireActivity().getSupportFragmentManager().beginTransaction()
                         .replace(R.id.fragment_container, writeFragment)
-                        .addToBackStack(null) // 뒤로가기 가능하게 설정
+                        .addToBackStack(null)
                         .commit();
-
                 return true;
             } else if (itemId == R.id.menu_delete) {
                 showDeleteConfirmationDialog(item);
@@ -197,7 +337,6 @@ public class GalleryFragment extends Fragment {
         }
         db.collection("TravelPosts").document(documentId).delete()
                 .addOnSuccessListener(aVoid -> {
-                    // 원본 이미지와 썸네일 모두 삭제
                     deletePostImages(item.getImages(), item.getImageThumbnails());
                     Toast.makeText(getContext(), "게시물이 삭제되었습니다.", Toast.LENGTH_SHORT).show();
                     loadMoreData(true);
@@ -208,115 +347,24 @@ public class GalleryFragment extends Fragment {
                 });
     }
 
-    /**
-     * Storage에서 원본 이미지와 썸네일 모두 삭제
-     */
     private void deletePostImages(List<String> imageUrls, List<String> thumbnailUrls) {
-        // 원본 이미지 삭제
-        if (imageUrls != null && !imageUrls.isEmpty()) {
+        if (imageUrls != null) {
             for (String imageUrl : imageUrls) {
-                if (imageUrl != null && !imageUrl.isEmpty() && imageUrl.startsWith("http")) {
+                if (imageUrl != null && imageUrl.startsWith("http")) {
                     try {
-                        StorageReference photoRef = storage.getReferenceFromUrl(imageUrl);
-                        photoRef.delete().addOnFailureListener(e ->
-                                Log.e("FirebaseStorage", "Failed to delete image: " + imageUrl, e));
-                    } catch (Exception e) {
-                        Log.e("FirebaseStorage", "Error getting reference for image: " + imageUrl, e);
-                    }
+                        storage.getReferenceFromUrl(imageUrl).delete();
+                    } catch (Exception ignored) {}
                 }
             }
         }
-        
-        // 썸네일 삭제
-        if (thumbnailUrls != null && !thumbnailUrls.isEmpty()) {
+        if (thumbnailUrls != null) {
             for (String thumbnailUrl : thumbnailUrls) {
-                if (thumbnailUrl != null && !thumbnailUrl.isEmpty() && thumbnailUrl.startsWith("http")) {
+                if (thumbnailUrl != null && thumbnailUrl.startsWith("http")) {
                     try {
-                        StorageReference thumbnailRef = storage.getReferenceFromUrl(thumbnailUrl);
-                        thumbnailRef.delete().addOnFailureListener(e ->
-                                Log.e("FirebaseStorage", "Failed to delete thumbnail: " + thumbnailUrl, e));
-                    } catch (Exception e) {
-                        Log.e("FirebaseStorage", "Error getting reference for thumbnail: " + thumbnailUrl, e);
-                    }
+                        storage.getReferenceFromUrl(thumbnailUrl).delete();
+                    } catch (Exception ignored) {}
                 }
             }
-        }
-    }
-
-    private void loadMoreData(boolean isRefresh) {
-        if (isLoading) return;
-        isLoading = true;
-
-        if (isRefresh) {
-            adapter.clearPosts();
-            lastVisible = null;
-            loadingProgressBar.setVisibility(View.VISIBLE);
-            indicatorContainer.removeAllViews();
-        }
-
-        // 쿼리에서 정확한 필드 이름인 "isPublic"을 사용합니다.
-        Query query = db.collection("TravelPosts")
-                .whereEqualTo("isPublic", true)
-                .orderBy("createdAt", sortDirection);
-
-        if (lastVisible != null) {
-            query = query.startAfter(lastVisible);
-        }
-
-        query.limit(LIMIT).get().addOnSuccessListener(queryDocumentSnapshots -> {
-            loadingProgressBar.setVisibility(View.GONE);
-            if (!isAdded()) return;
-
-            if (!queryDocumentSnapshots.isEmpty()) {
-                emptyStateText.setVisibility(View.GONE);
-                List<PostItem> newPosts = queryDocumentSnapshots.toObjects(PostItem.class);
-                List<DocumentSnapshot> snapshots = new ArrayList<>();
-                for (DocumentSnapshot doc : queryDocumentSnapshots.getDocuments()) {
-                    snapshots.add(doc);
-                }
-                Log.d("GalleryFragment", "Loaded posts: " + newPosts.size());
-                adapter.addPostList(newPosts, snapshots);
-                lastVisible = queryDocumentSnapshots.getDocuments().get(queryDocumentSnapshots.size() - 1);
-                buildIndicators(adapter.getItemCount());
-            } else if (lastVisible == null) {
-                emptyStateText.setVisibility(View.VISIBLE);
-            }
-            isLoading = false;
-        }).addOnFailureListener(e -> {
-            loadingProgressBar.setVisibility(View.GONE);
-            if (!isAdded()) return;
-            Log.e("Firestore", "Error loading gallery data", e);
-            Toast.makeText(getContext(), "갤러리를 불러오는 중 오류가 발생했습니다.", Toast.LENGTH_SHORT).show();
-            isLoading = false;
-        });
-    }
-
-    private void buildIndicators(int count) {
-        if (indicatorContainer == null || count <= 0) return;
-        indicatorContainer.removeAllViews();
-        for (int i = 0; i < count; i++) {
-            View dot = new View(getContext());
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(12, 12);
-            lp.setMargins(8, 0, 8, 0);
-            dot.setLayoutParams(lp);
-            dot.setBackgroundResource(R.drawable.indicator_dot_inactive);
-            final int position = i;
-            dot.setOnClickListener(v -> {
-                if (heroViewPager != null) {
-                    heroViewPager.setCurrentItem(position, true);
-                }
-            });
-            indicatorContainer.addView(dot);
-        }
-        updateIndicators(heroViewPager.getCurrentItem());
-    }
-
-    private void updateIndicators(int activeIndex) {
-        if (indicatorContainer == null) return;
-        int childCount = indicatorContainer.getChildCount();
-        for (int i = 0; i < childCount; i++) {
-            View dot = indicatorContainer.getChildAt(i);
-            dot.setBackgroundResource(i == activeIndex ? R.drawable.indicator_dot_active : R.drawable.indicator_dot_inactive);
         }
     }
 }
