@@ -17,8 +17,10 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapView;
 import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
+import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.maps.android.clustering.ClusterManager;
 
 import java.text.SimpleDateFormat;
@@ -313,6 +315,7 @@ public class DetailAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
         
         holder.mapView.getMapAsync(googleMap -> {
             holder.googleMap = googleMap;
+            googleMap.clear(); // 기존 선이나 마커 제거
             googleMap.getUiSettings().setZoomControlsEnabled(true);
             googleMap.getUiSettings().setScrollGesturesEnabled(true);
             googleMap.getUiSettings().setZoomGesturesEnabled(true);
@@ -327,6 +330,11 @@ public class DetailAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
             
             List<LatLng> allLocations = new ArrayList<>();
             List<LatLng> firstDayLocations = new ArrayList<>();
+            PolylineOptions polylineOptions = new PolylineOptions()
+                    .width(10)
+                    .color(0xFFFF0000) // 빨간색으로 변경
+                    .geodesic(true);
+            
             int photoCount = postItem.getPhotoCount();
             String postId = postItem.getDocumentId() != null ? postItem.getDocumentId() : "unknown";
             
@@ -336,6 +344,8 @@ public class DetailAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
                 if (latitude != null && longitude != null && latitude != 0.0 && longitude != 0.0) {
                     LatLng location = new LatLng(latitude, longitude);
                     allLocations.add(location);
+                    polylineOptions.add(location); // 선 경로에 추가
+                    
                     String day = postItem.getImageDay(i) != null ? postItem.getImageDay(i) : "1";
                     if ("1".equals(day)) firstDayLocations.add(location);
                     String imageUrl = postItem.getImageThumbnailUrl(i) != null ? postItem.getImageThumbnailUrl(i) : postItem.getImageUrl(i);
@@ -345,6 +355,12 @@ public class DetailAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
                     }
                 }
             }
+            
+            // 선 그리기
+            if (allLocations.size() >= 2) {
+                googleMap.addPolyline(polylineOptions);
+            }
+            
             holder.clusterManager.cluster();
             
             if (!allLocations.isEmpty()) {
