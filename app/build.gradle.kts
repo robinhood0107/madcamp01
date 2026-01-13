@@ -28,6 +28,10 @@ android {
             )
         }
     }
+
+    buildFeatures {
+        buildConfig = true // BuildConfig 경고 제거: 생성 활성화
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
