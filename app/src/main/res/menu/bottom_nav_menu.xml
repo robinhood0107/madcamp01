@@ -1,17 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
-
+    <item
+            android:id="@+id/nav_map"
+            android:icon="@drawable/ic_map"
+            android:title="Map" />
     <item
             android:id="@+id/nav_my_list"
-            android:icon="@android:drawable/ic_menu_myplaces"
-            android:title="개인 여행 갤러리" />
-
+            android:icon="@drawable/ic_my_feed"
+            android:title="My Feed" />
     <item
             android:id="@+id/nav_sns_gallery"
-            android:icon="@android:drawable/ic_menu_gallery"
-            android:title="커뮤니티" />
+            android:icon="@drawable/ic_community"
+            android:title="Community" />
     <item
             android:id="@+id/nav_my_page"
-            android:icon="@android:drawable/ic_menu_gallery"
-            android:title="마이 페이지" />
+            android:icon="@drawable/ic_profile"
+            android:title="Profile" />
 </menu>

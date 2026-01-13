@@ -12,7 +12,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
-import android.widget.ImageView;
 import android.widget.PopupMenu;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -52,14 +51,10 @@ public class ListFragment extends Fragment {
     private TextView tvHeaderTitle;
     private TextView tvUsername;
     private TextView tvPinsCount;
-    private TextView tvFollowers;
-    private TextView tvFollowing;
     private TextView tvBio;
     private TextView tvCurrentLocation;
     private View locationBadge;
-    private ImageView ivProfilePicture;
     private ImageButton btnSettings;
-    private ImageButton btnEditProfile;
 
     private FirebaseFirestore db;
     private FirebaseStorage storage;
@@ -91,14 +86,10 @@ public class ListFragment extends Fragment {
         tvHeaderTitle = view.findViewById(R.id.tvHeaderTitle);
         tvUsername = view.findViewById(R.id.tvUsername);
         tvPinsCount = view.findViewById(R.id.tvPinsCount);
-        tvFollowers = view.findViewById(R.id.tvFollowers);
-        tvFollowing = view.findViewById(R.id.tvFollowing);
         tvBio = view.findViewById(R.id.tvBio);
         tvCurrentLocation = view.findViewById(R.id.tvCurrentLocation);
         locationBadge = view.findViewById(R.id.locationBadge);
-        ivProfilePicture = view.findViewById(R.id.ivProfilePicture);
         btnSettings = view.findViewById(R.id.btnSettings);
-        btnEditProfile = view.findViewById(R.id.btnEditProfile);
 
         // 위치 서비스 초기화
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity());
@@ -109,38 +100,17 @@ public class ListFragment extends Fragment {
         // 현재 위치 가져오기
         getCurrentLocation();
 
-        // [수정] 지도 버튼 설정
-        View btnOpenMap = view.findViewById(R.id.btn_open_map);
-        if (btnOpenMap != null) {
-            btnOpenMap.setOnClickListener(v -> {
-                PostMapFragment mapFragment = new PostMapFragment();
-                getParentFragmentManager().beginTransaction()
-                        .replace(R.id.fragment_container, mapFragment)
-                        .addToBackStack(null)
-                        .commit();
-            });
-        }
-        View fabAddPost = view.findViewById(R.id.btn_new_post);
-        if (fabAddPost != null) {
-            fabAddPost.setOnClickListener(v -> {
-                if (getActivity() instanceof MainActivity) {
-                    ((MainActivity) getActivity()).showTravelInfoDialog();
-                }
-            });
-        }
-
         // 설정 버튼 클릭 리스너
         if (btnSettings != null) {
             btnSettings.setOnClickListener(v -> {
-                // 설정 화면으로 이동하거나 다이얼로그 표시
-                Toast.makeText(getContext(), "설정 기능은 준비 중입니다.", Toast.LENGTH_SHORT).show();
-            });
-        }
-
-        // 프로필 편집 버튼 클릭 리스너
-        if (btnEditProfile != null) {
-            btnEditProfile.setOnClickListener(v -> {
-                Toast.makeText(getContext(), "프로필 편집 기능은 준비 중입니다.", Toast.LENGTH_SHORT).show();
+                // 마이페이지로 이동
+                requireActivity().getSupportFragmentManager().beginTransaction()
+                        .replace(R.id.fragment_container, new MypageFragment())
+                        .addToBackStack(null)
+                        .commit();
+                if (getActivity() instanceof androidx.appcompat.app.AppCompatActivity) {
+                    ((androidx.appcompat.app.AppCompatActivity) getActivity()).setTitle("Profile");
+                }
             });
         }
 
@@ -339,20 +309,14 @@ public class ListFragment extends Fragment {
     private void setupHeader() {
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
         if (user != null) {
-            // 사용자명 설정 (이메일에서 @ 앞부분 사용)
+            // 사용자 이메일을 그대로 표시
             String email = user.getEmail();
             if (email != null) {
-                String username = email.split("@")[0];
                 if (tvUsername != null) {
-                    tvUsername.setText("@" + username);
+                    tvUsername.setText(email);
                 }
             }
 
-            // 프로필 사진 설정 (기본값 사용)
-            if (ivProfilePicture != null) {
-                // Glide를 사용하여 프로필 사진 로드 가능
-                // 현재는 기본 아이콘 사용
-            }
         }
 
         // 게시물 수를 로드하여 게시물 수 업데이트

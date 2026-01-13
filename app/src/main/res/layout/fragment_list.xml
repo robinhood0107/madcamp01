@@ -44,13 +44,13 @@
                         android:layout_marginBottom="4dp">
 
                         <TextView
-                            android:id="@+id/tvHeaderTitle"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="개인"
-                            android:textSize="24sp"
-                            android:textStyle="bold"
-                            android:textColor="#111827"/>
+                                android:id="@+id/tvHeaderTitle"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="My Feed"
+                                android:textSize="24sp"
+                                android:textStyle="bold"
+                                android:textColor="#111827" />
 
                         <!-- 현재 위치 배지 (아이폰 스타일) -->
                         <LinearLayout
@@ -119,13 +119,12 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
+                    android:orientation="vertical"
                     android:padding="20dp">
 
                     <LinearLayout
-                        android:layout_width="0dp"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
                         android:orientation="vertical">
 
                         <LinearLayout
@@ -152,30 +151,6 @@
                                 android:layout_marginStart="4dp"/>
                         </LinearLayout>
 
-                        <LinearLayout
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:layout_marginTop="8dp">
-
-                            <TextView
-                                android:id="@+id/tvFollowers"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="1.2k 팔로워"
-                                android:textSize="14sp"
-                                android:textColor="#6B7280"/>
-
-                            <TextView
-                                android:id="@+id/tvFollowing"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="480 팔로잉"
-                                android:textSize="14sp"
-                                android:textColor="#6B7280"
-                                android:layout_marginStart="16dp"/>
-                        </LinearLayout>
-
                         <TextView
                             android:id="@+id/tvBio"
                             android:layout_width="wrap_content"
@@ -188,31 +163,6 @@
                             android:ellipsize="end"/>
                     </LinearLayout>
 
-                    <RelativeLayout
-                        android:layout_width="80dp"
-                        android:layout_height="80dp"
-                        android:layout_marginStart="16dp">
-
-                        <ImageView
-                            android:id="@+id/ivProfilePicture"
-                            android:layout_width="80dp"
-                            android:layout_height="80dp"
-                            android:scaleType="centerCrop"
-                            android:background="@drawable/bg_avatar"
-                            android:src="@drawable/ic_launcher_foreground"/>
-
-                        <ImageButton
-                            android:id="@+id/btnEditProfile"
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            android:layout_alignParentEnd="true"
-                            android:layout_alignParentBottom="true"
-                            android:background="@drawable/bg_avatar"
-                            android:src="@android:drawable/ic_menu_edit"
-                            android:backgroundTint="#3B82F6"
-                            android:padding="4dp"
-                            android:contentDescription="프로필 편집"/>
-                    </RelativeLayout>
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
@@ -239,28 +189,5 @@
         android:layout_gravity="center"
         android:visibility="gone"
         tools:visibility="visible"/>
-
-    <!-- FAB 버튼들 (지도, 새 게시물) -->
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/btn_open_map"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|start"
-        android:layout_margin="16dp"
-        android:src="@android:drawable/ic_dialog_map"
-        android:contentDescription="지도"
-        app:tint="#FFFFFF"
-        app:backgroundTint="#3B82F6"/>
-
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/btn_new_post"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="16dp"
-        android:src="@android:drawable/ic_input_add"
-        android:contentDescription="새 게시물"
-        app:tint="#FFFFFF"
-        app:backgroundTint="#3B82F6"/>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
