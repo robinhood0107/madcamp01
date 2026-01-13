@@ -1,12 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="300dp"
-    android:layout_margin="8dp">
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="#FFFFFF">
 
-    <com.google.android.gms.maps.MapView
-        android:id="@+id/map_footer"
+    <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="300dp"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="2dp"
+        app:cardBackgroundColor="#F8F9FA">
 
-</FrameLayout>
+        <!-- 투명한 View를 맵 위에 덮어 터치 이벤트를 가로챔 (인터셉트용) -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <com.google.android.gms.maps.MapView
+                android:id="@+id/map_footer"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+
+            <!-- 이 View는 코드에서 터치 이벤트를 처리하여 부모(RecyclerView)의 스크롤을 막는 용도입니다. -->
+            <View
+                android:id="@+id/map_overlay"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@android:color/transparent" />
+        </FrameLayout>
+
+    </androidx.cardview.widget.CardView>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="60dp"/>
+
+</LinearLayout>

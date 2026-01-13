@@ -1,7 +1,9 @@
 package com.example.madcamp01;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
@@ -118,49 +120,6 @@ public class DetailAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
         return imageUrls.size() + headerCount + footerCount; // 이미지 + 헤더 + 푸터(조건부)
     }
     
-    // 첫 번째로 좌표가 있는 일차를 찾고, 해당 일차의 사진들만 반환
-    private String findFirstDayWithLocation() {
-        if (postItem == null || imageUrls.isEmpty()) {
-            return null;
-        }
-        
-        // 일차별로 그룹화하여 첫 번째로 좌표가 있는 일차 찾기
-        String firstDayWithLocation = null;
-        String currentDay = null;
-        
-        for (int i = 0; i < imageUrls.size(); i++) {
-            String day = postItem.getImageDay(i);
-            Double latitude = postItem.getImageLatitude(i);
-            Double longitude = postItem.getImageLongitude(i);
-            
-            // 일차가 바뀌거나 첫 번째 사진일 때
-            if (currentDay == null || !currentDay.equals(day)) {
-                currentDay = day;
-                
-                // 이 일차에 좌표가 있는 사진이 있는지 확인
-                boolean hasLocationInThisDay = false;
-                for (int j = i; j < imageUrls.size(); j++) {
-                    String checkDay = postItem.getImageDay(j);
-                    if (!checkDay.equals(day)) break;
-                    
-                    Double lat = postItem.getImageLatitude(j);
-                    Double lng = postItem.getImageLongitude(j);
-                    if (lat != null && lng != null && lat != 0.0 && lng != 0.0) {
-                        hasLocationInThisDay = true;
-                        break;
-                    }
-                }
-                
-                if (hasLocationInThisDay && firstDayWithLocation == null) {
-                    firstDayWithLocation = day;
-                    break; // 첫 번째로 좌표가 있는 일차를 찾았으므로 종료
-                }
-            }
-        }
-        
-        return firstDayWithLocation;
-    }
-    
     // 좌표가 있는 사진이 하나라도 있는지 확인
     private boolean hasAnyLocationData() {
         if (postItem == null || imageUrls.isEmpty()) {
@@ -219,14 +178,11 @@ public class DetailAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
                     .centerCrop()
                     .into(imageHolder.ivDetailImage);
 
-            // 날짜 정보만 표시 (일차는 제거)
-            // 4열 이상일 때는 날짜 표시하지 않음
+            // 날짜 정보만 표시
             if (postItem != null && imageIndex < postItem.getPhotoCount() && currentSpanCount < 4) {
                 Date imageDate = postItem.getImageDate(imageIndex);
-                
-                // 날짜 표시 (년도 포함)
                 if (imageDate != null) {
-                    SimpleDateFormat sdf = new SimpleDateFormat("yy년 MM월 dd일", Locale.getDefault());
+                    SimpleDateFormat sdf = new SimpleDateFormat("yy.MM.dd", Locale.getDefault());
                     imageHolder.tvDate.setText(sdf.format(imageDate));
                     imageHolder.tvDate.setVisibility(View.VISIBLE);
                 } else {
@@ -236,7 +192,7 @@ public class DetailAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
                 imageHolder.tvDate.setVisibility(View.GONE);
             }
 
-            // 클릭 리스너 설정 (실제 이미지 인덱스 사용)
+            // 클릭 리스너 설정
             final int finalImageIndex = imageIndex;
             imageHolder.itemView.setOnClickListener(v -> {
                 if (listener != null) {
@@ -244,7 +200,6 @@ public class DetailAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
                 }
             });
         } else if (viewType == VIEW_TYPE_DAY_HEADER) {
-            // 일차 헤더 표시
             String dayNumber = getDayNumberForHeaderPosition(position);
             DayHeaderViewHolder headerHolder = (DayHeaderViewHolder) holder;
             if (dayNumber != null && !dayNumber.isEmpty()) {
@@ -253,78 +208,49 @@ public class DetailAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
                 headerHolder.tvDayHeader.setText("1일차");
             }
         }
-        // 푸터는 데이터 바인딩이 필요 없습니다.
     }
     
-    // position에 해당하는 실제 이미지 인덱스 반환
     private int getImageIndexForPosition(int position) {
         if (postItem == null || imageUrls.isEmpty()) {
             return position;
         }
-        
         int imageIndex = 0;
         int currentPosition = 0;
         String previousDay = null;
-        
         for (int i = 0; i < imageUrls.size(); i++) {
             String currentDay = postItem.getImageDay(i);
-            
-            // 첫 번째 이미지이거나 일차가 바뀌면 헤더 추가
             if (i == 0 || (previousDay != null && !previousDay.equals(currentDay))) {
-                if (position == currentPosition) {
-                    return -1; // 헤더 위치
-                }
+                if (position == currentPosition) return -1;
                 currentPosition++;
             }
-            
-            if (position == currentPosition) {
-                return imageIndex;
-            }
-            
+            if (position == currentPosition) return imageIndex;
             previousDay = currentDay;
             imageIndex++;
             currentPosition++;
         }
-        
         return -1;
     }
     
-    // 헤더 position에 해당하는 일차 반환
     private String getDayNumberForHeaderPosition(int position) {
-        if (postItem == null || imageUrls.isEmpty()) {
-            return "1";
-        }
-        
+        if (postItem == null || imageUrls.isEmpty()) return "1";
         int currentPosition = 0;
         String previousDay = null;
-        
         for (int i = 0; i < imageUrls.size(); i++) {
             String currentDay = postItem.getImageDay(i);
-            
-            // 첫 번째 이미지이거나 일차가 바뀌면 헤더
             if (i == 0 || (previousDay != null && !previousDay.equals(currentDay))) {
-                if (position == currentPosition) {
-                    return currentDay;
-                }
+                if (position == currentPosition) return currentDay;
                 currentPosition++;
             }
-            
-            if (position == currentPosition) {
-                return null; // 이미지 위치
-            }
-            
+            if (position == currentPosition) return null;
             previousDay = currentDay;
             currentPosition++;
         }
-        
         return null;
     }
 
-    // --- 뷰홀더 --- //
     static class ImageViewHolder extends RecyclerView.ViewHolder {
         ImageView ivDetailImage;
         TextView tvDate;
-        
         public ImageViewHolder(@NonNull View itemView) {
             super(itemView);
             ivDetailImage = itemView.findViewById(R.id.ivDetailImage);
@@ -334,7 +260,6 @@ public class DetailAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
 
     static class DayHeaderViewHolder extends RecyclerView.ViewHolder {
         TextView tvDayHeader;
-        
         public DayHeaderViewHolder(@NonNull View itemView) {
             super(itemView);
             tvDayHeader = itemView.findViewById(R.id.tvDayHeader);
@@ -343,151 +268,106 @@ public class DetailAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
 
     static class FooterViewHolder extends RecyclerView.ViewHolder {
         MapView mapView;
+        View mapOverlay;
         boolean mapInitialized = false;
         ClusterManager<PhotoItem> clusterManager;
         GoogleMap googleMap;
-        
         public FooterViewHolder(@NonNull View itemView) {
             super(itemView);
             mapView = itemView.findViewById(R.id.map_footer);
+            mapOverlay = itemView.findViewById(R.id.map_overlay);
         }
     }
     
+    @SuppressLint("ClickableViewAccessibility")
     private void setupMapInFooter(FooterViewHolder holder) {
         if (postItem == null || holder.mapView == null) return;
-        
-        // 좌표가 있는 사진이 하나라도 있는지 확인
         if (!hasAnyLocationData()) {
-            // 좌표가 있는 사진이 없으면 footer 숨김
             holder.itemView.setVisibility(View.GONE);
             return;
         }
-        
         holder.itemView.setVisibility(View.VISIBLE);
-        
-        // MapView 초기화 (한 번만)
+
+        // 지도 내부 터치 시 RecyclerView 스크롤 방지
+        if (holder.mapOverlay != null) {
+            holder.mapOverlay.setOnTouchListener((v, event) -> {
+                switch (event.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+                    case MotionEvent.ACTION_MOVE:
+                        v.getParent().requestDisallowInterceptTouchEvent(true);
+                        break;
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
+                        v.getParent().requestDisallowInterceptTouchEvent(false);
+                        break;
+                }
+                return false; // 이벤트를 소비하지 않아 지도가 받을 수 있게 함
+            });
+        }
+
         if (!holder.mapInitialized) {
             holder.mapView.onCreate(null);
             holder.mapView.onResume();
             holder.mapInitialized = true;
         }
         
-        holder.mapView.getMapAsync(new OnMapReadyCallback() {
-            @Override
-            public void onMapReady(GoogleMap googleMap) {
-                holder.googleMap = googleMap;
-                googleMap.getUiSettings().setZoomControlsEnabled(true); // + - 버튼 활성화
-                googleMap.getUiSettings().setScrollGesturesEnabled(true);
-                googleMap.getUiSettings().setZoomGesturesEnabled(true);
-                googleMap.getUiSettings().setMapToolbarEnabled(false);
-                
-                // ClusterManager 초기화
-                holder.clusterManager = new ClusterManager<>(context, googleMap);
-                PhotoRenderer renderer = new PhotoRenderer(context, googleMap, holder.clusterManager);
-                holder.clusterManager.setRenderer(renderer);
-                
-                googleMap.setOnCameraIdleListener(holder.clusterManager);
-                googleMap.setOnMarkerClickListener(holder.clusterManager);
-                
-                // 해당 게시물의 모든 사진 위치를 썸네일 마커로 표시
-                List<LatLng> allLocations = new ArrayList<>();
-                List<LatLng> firstDayLocations = new ArrayList<>(); // 1일차 위치만
-                int photoCount = postItem.getPhotoCount();
-                String postId = postItem.getDocumentId();
-                if (postId == null || postId.isEmpty()) {
-                    postId = "unknown";
-                }
-                
-                for (int i = 0; i < photoCount; i++) {
-                    Double latitude = postItem.getImageLatitude(i);
-                    Double longitude = postItem.getImageLongitude(i);
-                    
-                    if (latitude != null && longitude != null && 
-                        latitude != 0.0 && longitude != 0.0) {
-                        LatLng location = new LatLng(latitude, longitude);
-                        allLocations.add(location);
-                        
-                        // 일차 정보 가져오기
-                        String day = postItem.getImageDay(i);
-                        if (day == null || day.isEmpty()) {
-                            day = "1";
-                        }
-                        
-                        // 1일차 위치 저장
-                        if ("1".equals(day)) {
-                            firstDayLocations.add(location);
-                        }
-                        
-                        // 썸네일 URL 가져오기 (썸네일이 없으면 원본 이미지 사용)
-                        String imageUrl = postItem.getImageThumbnailUrl(i);
-                        if (imageUrl == null || imageUrl.isEmpty()) {
-                            imageUrl = postItem.getImageUrl(i);
-                        }
-                        if (imageUrl == null || imageUrl.isEmpty()) {
-                            continue; // 이미지 URL이 없으면 스킵
-                        }
-                        
-                        // PhotoItem 생성하여 ClusterManager에 추가
+        holder.mapView.getMapAsync(googleMap -> {
+            holder.googleMap = googleMap;
+            googleMap.getUiSettings().setZoomControlsEnabled(true);
+            googleMap.getUiSettings().setScrollGesturesEnabled(true);
+            googleMap.getUiSettings().setZoomGesturesEnabled(true);
+            googleMap.getUiSettings().setMapToolbarEnabled(false);
+            
+            holder.clusterManager = new ClusterManager<>(context, googleMap);
+            PhotoRenderer renderer = new PhotoRenderer(context, googleMap, holder.clusterManager);
+            holder.clusterManager.setRenderer(renderer);
+            
+            googleMap.setOnCameraIdleListener(holder.clusterManager);
+            googleMap.setOnMarkerClickListener(holder.clusterManager);
+            
+            List<LatLng> allLocations = new ArrayList<>();
+            List<LatLng> firstDayLocations = new ArrayList<>();
+            int photoCount = postItem.getPhotoCount();
+            String postId = postItem.getDocumentId() != null ? postItem.getDocumentId() : "unknown";
+            
+            for (int i = 0; i < photoCount; i++) {
+                Double latitude = postItem.getImageLatitude(i);
+                Double longitude = postItem.getImageLongitude(i);
+                if (latitude != null && longitude != null && latitude != 0.0 && longitude != 0.0) {
+                    LatLng location = new LatLng(latitude, longitude);
+                    allLocations.add(location);
+                    String day = postItem.getImageDay(i) != null ? postItem.getImageDay(i) : "1";
+                    if ("1".equals(day)) firstDayLocations.add(location);
+                    String imageUrl = postItem.getImageThumbnailUrl(i) != null ? postItem.getImageThumbnailUrl(i) : postItem.getImageUrl(i);
+                    if (imageUrl != null && !imageUrl.isEmpty()) {
                         PhotoItem photoItem = new PhotoItem(latitude, longitude, imageUrl, postId);
                         holder.clusterManager.addItem(photoItem);
                     }
                 }
-                
-                // 클러스터링 적용
-                holder.clusterManager.cluster();
-                
-                // 카메라 조정: 1일차 위치를 중심으로, 모든 마커가 보이도록
-                if (!allLocations.isEmpty()) {
-                    LatLngBounds.Builder allBoundsBuilder = new LatLngBounds.Builder();
-                    for (LatLng location : allLocations) {
-                        allBoundsBuilder.include(location);
-                    }
-                    LatLngBounds allBounds = allBoundsBuilder.build();
-                    
-                    // 1일차 위치가 있으면 1일차 중심으로, 없으면 전체 중심으로
-                    LatLng center;
-                    if (!firstDayLocations.isEmpty()) {
-                        // 1일차 위치의 중심점 계산
-                        LatLngBounds.Builder firstDayBuilder = new LatLngBounds.Builder();
-                        for (LatLng location : firstDayLocations) {
-                            firstDayBuilder.include(location);
-                        }
-                        LatLngBounds firstDayBounds = firstDayBuilder.build();
-                        center = firstDayBounds.getCenter();
-                    } else {
-                        // 1일차 위치가 없으면 전체 중심
-                        center = allBounds.getCenter();
-                    }
-                    
-                    // bounds의 너비와 높이를 계산하여 적당한 줌 레벨 결정
-                    double latSpan = allBounds.northeast.latitude - allBounds.southwest.latitude;
-                    double lngSpan = allBounds.northeast.longitude - allBounds.southwest.longitude;
-                    double maxSpan = Math.max(latSpan, lngSpan);
-                    
-                    // 줌 레벨 계산 (너무 확대되지 않도록 최소 줌 레벨 제한)
-                    float zoomLevel;
-                    if (maxSpan < 0.01) {
-                        // 매우 가까운 위치들 - 최대 13 줌
-                        zoomLevel = 13.0f;
-                    } else if (maxSpan < 0.1) {
-                        // 가까운 위치들 - 11-12 줌
-                        zoomLevel = 11.5f;
-                    } else {
-                        // 멀리 떨어진 위치들 - 10 줌
-                        zoomLevel = 10.0f;
-                    }
-                    
-                    // 1일차 중심으로 카메라 이동 (모든 마커가 보이도록 줌 레벨 조정)
-                    googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(center, zoomLevel));
+            }
+            holder.clusterManager.cluster();
+            
+            if (!allLocations.isEmpty()) {
+                LatLngBounds.Builder allBoundsBuilder = new LatLngBounds.Builder();
+                for (LatLng location : allLocations) allBoundsBuilder.include(location);
+                LatLngBounds allBounds = allBoundsBuilder.build();
+                LatLng center;
+                if (!firstDayLocations.isEmpty()) {
+                    LatLngBounds.Builder firstDayBuilder = new LatLngBounds.Builder();
+                    for (LatLng location : firstDayLocations) firstDayBuilder.include(location);
+                    center = firstDayBuilder.build().getCenter();
                 } else {
-                    // 위치 정보가 없으면 기본 위치로 설정
-                    googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(37.5665, 126.9780), 10f));
+                    center = allBounds.getCenter();
                 }
+                double maxSpan = Math.max(allBounds.northeast.latitude - allBounds.southwest.latitude, allBounds.northeast.longitude - allBounds.southwest.longitude);
+                float zoomLevel = maxSpan < 0.01 ? 13.0f : (maxSpan < 0.1 ? 11.5f : 10.0f);
+                googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(center, zoomLevel));
+            } else {
+                googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(37.5665, 126.9780), 10f));
             }
         });
     }
 
-    // --- 클릭 리스너 인터페이스 --- //
     public interface OnItemClickListener {
         void onItemClick(int position);
     }
