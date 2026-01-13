@@ -11,11 +11,15 @@ import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 public class MainActivity extends AppCompatActivity {
     //자바에서는 onCreate() 함수가 시작점
     private int previousTabId = R.id.nav_my_list; // 이전 탭 ID 저장 (기본값: 내 여행 리스트)
     private BottomNavigationView bottomNav; // 네비게이션 바 참조
+
+    private FloatingActionButton fabAddButton; //네비게이션 중앙에 있는 버튼
+    private boolean isTravelInfoFlowActive = false; // 여행 정보 입력 다이얼로그 진행 여부
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -24,6 +28,21 @@ public class MainActivity extends AppCompatActivity {
 
         bottomNav = findViewById(R.id.bottom_navigation);
         // 프래그먼트 변경 시 하단 바 상태를 동기화하기 위한 리스너
+        
+        //네비게이션 제일 중앙 버튼튼
+        //바로 위에서 추가한 fabAddButton에 대한 중앙버튼 찾기랑 클릭리스너 연결
+        fabAddButton = findViewById(R.id.fab_add_button);
+        if (fabAddButton != null){
+            fabAddButton.setOnClickListener(v -> {
+                // 현재 탭을 기록해둔다 (취소 시 복원용)
+                previousTabId = bottomNav.getSelectedItemId();
+                //게시물 작성 다이얼로그 표시
+                showTravelInfoDialog();
+                //이렇게 바로 클릭리스너는 클릭시 게시물 작성 다이얼로그로 연결시켜버리면 됨됨
+            });
+        }
+
+
         getSupportFragmentManager().addOnBackStackChangedListener(new FragmentManager.OnBackStackChangedListener() {
             @Override
             public void onBackStackChanged() {
@@ -37,15 +56,20 @@ public class MainActivity extends AppCompatActivity {
 
                 // 네비게이션 바 상태와 타이틀 동기화
                 // DetailFragment 등 다른 프래그먼트는 백스택에 있으므로 네비게이션 바 상태는 유지
-                if (currentFragment instanceof ListFragment) {
+
+                //네비게이션 구조 바꾸면 당연 여기도 바꿔야 한다다
+                if (currentFragment instanceof PostMapFragment) {
+                    bottomNav.getMenu().findItem(R.id.nav_map).setChecked(true);
+                    setTitle("Map");
+                } else if (currentFragment instanceof ListFragment) {
                     bottomNav.getMenu().findItem(R.id.nav_my_list).setChecked(true);
-                    setTitle("내 여행 리스트");
+                    setTitle("My Feed");
                 } else if (currentFragment instanceof GalleryFragment) {
                     bottomNav.getMenu().findItem(R.id.nav_sns_gallery).setChecked(true);
-                    setTitle("갤러리");
+                    setTitle("Community");
                 } else if (currentFragment instanceof MypageFragment) {
                     bottomNav.getMenu().findItem(R.id.nav_my_page).setChecked(true);
-                    setTitle("마이페이지");
+                    setTitle("Profile");
                 }
                 // DetailFragment 등 다른 프래그먼트는 백스택에 있으므로 네비게이션 바 상태는 유지
             }
@@ -56,8 +80,9 @@ public class MainActivity extends AppCompatActivity {
             getSupportFragmentManager().beginTransaction()
                     .replace(R.id.fragment_container, new ListFragment())
                     .commit();
-            setTitle("내 여행 리스트"); // 초기 타이틀 설정
+            setTitle("My Feed"); // 초기 타이틀 설정
             bottomNav.setSelectedItemId(R.id.nav_my_list); // 초기 탭 선택
+            previousTabId = R.id.nav_my_list; // 초기 탭 기록
         }
 
         // 탭 클릭 이벤트 리스너
@@ -107,19 +132,26 @@ public class MainActivity extends AppCompatActivity {
             }
 
             // 탭 이동 로직을 별도 함수로 분리 (중복 방지)
+            //switchFragment가 탭과 탭을 이동시켜주는 함수라고 생각하면 된다.
+            //예가 따로 관리해서 유지보수성 높인다고 생각하면 됨됨
             private void switchFragment(int itemId) {
                 Fragment selectedFragment = null;
                 String title = "";
 
-                if (itemId == R.id.nav_my_list) {
+
+                //네비게이션 변경했으니까 이에 따라서 맞게 변경 해줘야지
+                if (itemId == R.id.nav_map) {
+                    selectedFragment = new PostMapFragment();
+                    title = "Map";
+                } else if (itemId == R.id.nav_my_list) {
                     selectedFragment = new ListFragment();
-                    title = "내 여행 리스트";
+                    title = "My Feed";
                 } else if (itemId == R.id.nav_sns_gallery) {
                     selectedFragment = new GalleryFragment();
-                    title = "갤러리";
+                    title = "Community";
                 } else if (itemId == R.id.nav_my_page) {
                     selectedFragment = new MypageFragment();
-                    title = "마이페이지";
+                    title = "Profile";
                 }
 
                 if (selectedFragment != null) {
@@ -138,17 +170,9 @@ public class MainActivity extends AppCompatActivity {
 
                     setTitle(title);
                     bottomNav.getMenu().findItem(itemId).setChecked(true);
+                    previousTabId = itemId; // 현재 선택된 탭 기록
                 }
             }
-            
-            // 게시물 작성 선택 다이얼로그 (새로 작성하기 / 이전 탭으로 돌아가기)
-
-            
-            // 이전 탭으로 이동하는 함수
-
-            
-            // 여행 정보 입력 다이얼로그 (신규 작성 시에만 표시)
-
         });
         
         // 뒤로 가기 버튼 클릭 시 확인 팝업 띄우기
@@ -178,7 +202,8 @@ public class MainActivity extends AppCompatActivity {
     }
     
     // 여행 정보 확인 다이얼로그 표시
-    private void showTravelInfoConfirmationDialog(java.util.Date startDate, int travelDays, WriteFragment writeFragment, android.app.AlertDialog previousDialog) {
+    // TravelInfo 다이얼로그에서 입력 완료 후 실제로 글쓰기 화면으로 이동시킨다.
+    private void showTravelInfoConfirmationDialog(java.util.Date startDate, int travelDays, android.app.AlertDialog previousDialog, Runnable onConfirmed) {
         // 종료일 계산
         java.util.Calendar endCal = java.util.Calendar.getInstance();
         endCal.setTime(startDate);
@@ -197,22 +222,30 @@ public class MainActivity extends AppCompatActivity {
                 .setTitle("여행 일정 확인")
                 .setMessage(message)
                 .setPositiveButton("맞습니다", (d, which) -> {
-                    // WriteFragment에 여행 정보 전달
+                    // 여행 정보 번들을 만들어 WriteFragment로 이동
                     Bundle newArgs = new Bundle();
                     newArgs.putInt("travelDays", travelDays);
                     newArgs.putLong("startDate", startDate.getTime());
+
+                    WriteFragment writeFragment = new WriteFragment();
                     writeFragment.setArguments(newArgs);
-                    
-                    // WriteFragment의 여행 정보 업데이트를 위해 재생성
-                    WriteFragment updatedWriteFragment = new WriteFragment();
-                    updatedWriteFragment.setArguments(newArgs);
-                    
-                    getSupportFragmentManager().beginTransaction()
-                            .replace(R.id.fragment_container, updatedWriteFragment)
+
+                    // 여행 정보 입력 플로우 완료 표시 (취소시 복귀 방지)
+                    isTravelInfoFlowActive = false;
+
+                    // 기존 백스택 정리 후 글쓰기 화면으로 전환
+                    FragmentManager fm = getSupportFragmentManager();
+                    fm.popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
+                    fm.beginTransaction()
+                            .replace(R.id.fragment_container, writeFragment)
                             .commit();
                     setTitle("글쓰기");
-                    
+
+                    // 이전(여행 정보 입력) 다이얼로그 닫기
                     previousDialog.dismiss();
+                    if (onConfirmed != null) {
+                        onConfirmed.run();
+                    }
                 })
                 .setNegativeButton("수정하기", (d, which) -> {
                     // 수정하기를 누르면 이전 다이얼로그는 그대로 유지 (아무것도 안 함)
@@ -222,19 +255,17 @@ public class MainActivity extends AppCompatActivity {
     }
     
     public void showTravelInfoDialog() {
+        previousTabId = bottomNav != null ? bottomNav.getSelectedItemId() : R.id.nav_my_list;
+        isTravelInfoFlowActive = true;
 
-        // 다이얼로그 표시 전 현재 선택된 탭 저장 (다이얼로그 취소 시 복원용)
-        final int currentSelectedTabId = previousTabId;
-
-        // WriteFragment를 먼저 생성하여 뒤 배경으로 설정
-        WriteFragment writeFragment = new WriteFragment();
-        // 여행 정보는 아직 없지만 WriteFragment를 먼저 생성
-        Bundle args = new Bundle();
-        writeFragment.setArguments(args);
+        // TravelInfo 다이얼로그가 떠 있는 동안 배경에 WriteFragment를 미리 표시
+        WriteFragment draftWriteFragment = new WriteFragment();
+        Bundle draftArgs = new Bundle();
+        draftWriteFragment.setArguments(draftArgs);
 
         getSupportFragmentManager().popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
         getSupportFragmentManager().beginTransaction()
-                .replace(R.id.fragment_container, writeFragment)
+                .replace(R.id.fragment_container, draftWriteFragment)
                 .commit();
         setTitle("글쓰기");
 
@@ -271,49 +302,42 @@ public class MainActivity extends AppCompatActivity {
                 calendar.set(datePicker.getYear(), datePicker.getMonth(), datePicker.getDayOfMonth());
                 java.util.Date startDate = calendar.getTime();
 
-                // 확인 다이얼로그 표시
-                showTravelInfoConfirmationDialog(startDate, travelDays, writeFragment, dialog);
+                // 확인 다이얼로그 표시 후, 최종 확인 시에만 글쓰기 정보를 확정
+                showTravelInfoConfirmationDialog(startDate, travelDays, dialog, null);
             });
 
             android.widget.Button negativeButton = dialog.getButton(android.app.AlertDialog.BUTTON_NEGATIVE);
             negativeButton.setOnClickListener(v -> {
-                // 취소 시 이전 탭으로 복원
-                navigateToPreviousTab();
+                restorePreviousTab();
                 dialog.dismiss();
             });
         });
 
-        // 다이얼로그가 외부에서 취소되거나 뒤로가기로 닫힐 때 처리
-        dialog.setOnCancelListener(d -> {
-            // 취소 시 이전 탭으로 복원
-            navigateToPreviousTab();
-        });
-
-        dialog.setOnDismissListener(d -> {
-            // 다이얼로그가 닫힐 때 WriteFragment로 이동하지 않은 경우에만 상태 복원
-            Fragment currentFragment = getSupportFragmentManager().findFragmentById(R.id.fragment_container);
-            if (!(currentFragment instanceof WriteFragment)) {
-                navigateToPreviousTab();
-            }
-        });
+        dialog.setOnCancelListener(d -> restorePreviousTab());
+        dialog.setOnDismissListener(d -> restorePreviousTab());
 
         dialog.show();
     }
-    private void navigateToPreviousTab() {
-        // 이전 탭이 글쓰기 탭인 경우 기본값(내 여행 리스트)으로 이동
-        int targetTabId = previousTabId;
+    private void restorePreviousTab() {
+        if (!isTravelInfoFlowActive) {
+            return;
+        }
+        isTravelInfoFlowActive = false;
 
-        // 이전 탭으로 직접 이동 (다이얼로그 없이)
         Fragment selectedFragment = null;
-        if (targetTabId == R.id.nav_my_list) {
+        String title = "";
+        if (previousTabId == R.id.nav_map) {
+            selectedFragment = new PostMapFragment();
+            title = "Map";
+        } else if (previousTabId == R.id.nav_my_list) {
             selectedFragment = new ListFragment();
-            setTitle("내 여행 리스트");
-        } else if (targetTabId == R.id.nav_sns_gallery) {
+            title = "My Feed";
+        } else if (previousTabId == R.id.nav_sns_gallery) {
             selectedFragment = new GalleryFragment();
-            setTitle("갤러리");
-        } else if (targetTabId == R.id.nav_my_page) {
+            title = "Community";
+        } else if (previousTabId == R.id.nav_my_page) {
             selectedFragment = new MypageFragment();
-            setTitle("마이페이지");
+            title = "Profile";
         }
 
         if (selectedFragment != null) {
@@ -321,7 +345,10 @@ public class MainActivity extends AppCompatActivity {
             getSupportFragmentManager().beginTransaction()
                     .replace(R.id.fragment_container, selectedFragment)
                     .commit();
-            bottomNav.getMenu().findItem(targetTabId).setChecked(true);
+            setTitle(title);
+            if (bottomNav != null) {
+                bottomNav.getMenu().findItem(previousTabId).setChecked(true);
+            }
         }
     }
 }
