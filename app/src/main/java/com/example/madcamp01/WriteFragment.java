@@ -903,6 +903,8 @@ public class WriteFragment extends Fragment {
                 // 계속 진행
             }
         }
+        currentPostItem.setImageCountries(countries);
+        currentPostItem.setImageCities(cities);
 
         // Firestore에 리스트 형태로 저장
         Map<String, Object> post = new HashMap<>();

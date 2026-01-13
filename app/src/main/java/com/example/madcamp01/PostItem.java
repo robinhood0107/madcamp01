@@ -27,6 +27,8 @@ public class PostItem implements Parcelable {
     private List<Double> imageLatitudes;
     private List<Double> imageLongitudes;
     private List<String> imageLocations;
+    private List<String> imageCountries;
+    private List<String> imageCities;
     private transient List<Uri> localOnlyImageUris; // 로컬 작업용 (Firebase 저장 안됨)
 
     // 여행 기간 정보
@@ -96,6 +98,10 @@ public class PostItem implements Parcelable {
     public void setIsPublic(boolean isPublic) { this.isPublic = isPublic; }
     public Date getCreatedAt() { return createdAt; }
     public void setCreatedAt(Date createdAt) { this.createdAt = createdAt; }
+    public void setImageCountries(List<String> imageCountries) { this.imageCountries = imageCountries; }
+    public void setImageCities(List<String> imageCities) { this.imageCities = imageCities; }
+    public List<String> getImageCountries() { return imageCountries; }
+    public List<String> getImageCities() { return imageCities;}
 
     // --- 헬퍼 메서드: 인덱스 기반 접근 ---
     
