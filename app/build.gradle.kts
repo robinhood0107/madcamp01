@@ -7,9 +7,7 @@ plugins {
 
 android {
     namespace = "com.example.madcamp01"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.madcamp01"
@@ -58,6 +56,9 @@ dependencies {
     implementation ("com.google.firebase:firebase-firestore")
     implementation ("com.google.firebase:firebase-storage")
     implementation("com.github.bumptech.glide:glide:4.16.0")
+
+    // Google Login
+    implementation("com.google.android.gms:play-services-auth:21.5.0")
 
     // PhotoView 라이브러리 추가
     implementation("com.github.chrisbanes:PhotoView:2.3.0")

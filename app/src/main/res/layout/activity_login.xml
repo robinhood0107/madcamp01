@@ -31,6 +31,7 @@
         android:hint="비밀번호 (6자이상)"
         android:inputType="textPassword"
         android:layout_marginBottom="15dp" />
+
     <EditText
         android:id="@+id/edit_login_password_confirm"
         android:layout_width="match_parent"
@@ -39,6 +40,7 @@
         android:inputType="textPassword"
         android:visibility="gone"
         android:layout_marginBottom="15dp" />
+
     <Button
         android:id="@+id/btn_main_action"
         android:layout_width="match_parent"
@@ -53,5 +55,16 @@
         android:text="계정이 없으신가요? 회원가입"
         android:textColor="#757575"
         android:padding="10dp" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#DDDDDD"
+        android:layout_marginVertical="20dp"/>
+
+    <com.google.android.gms.common.SignInButton
+        android:id="@+id/btn_google_login"
+        android:layout_width="match_parent"
+        android:layout_height="55dp" />
 
 </LinearLayout>
