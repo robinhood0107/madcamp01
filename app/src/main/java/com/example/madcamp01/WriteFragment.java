@@ -136,6 +136,11 @@ public class WriteFragment extends Fragment {
             btnSave.setText("수정 완료");
             btnChangeTravelInfo.setVisibility(View.VISIBLE);
             
+            // 타이틀 설정
+            if (getActivity() instanceof androidx.appcompat.app.AppCompatActivity) {
+                ((androidx.appcompat.app.AppCompatActivity) getActivity()).setTitle("게시물 수정");
+            }
+            
             PostItem postItem = getArguments().getParcelable("postItem");
             if (postItem != null) {
                 currentPostItem = postItem;
@@ -1087,6 +1092,10 @@ public class WriteFragment extends Fragment {
 
         String title = (editTripTitle != null) ? editTripTitle.getText().toString().trim() : "";
         return !title.isEmpty() || (currentPostItem != null && currentPostItem.getPhotoCount() > 0);
+    }
+    
+    public boolean isSaving() {
+        return isSaving;
     }
     
     private void showTravelInfoDialog() {

@@ -33,6 +33,12 @@ public class MainActivity extends AppCompatActivity {
             Fragment currentFragment = getSupportFragmentManager().findFragmentById(R.id.fragment_container);
             if (currentFragment == null) return;
 
+            // WriteFragment나 DetailFragment 등은 네비게이션 바 상태를 변경하지 않음
+            if (currentFragment instanceof WriteFragment || 
+                currentFragment instanceof DetailFragment) {
+                return;
+            }
+
             if (currentFragment instanceof PostMapFragment) {
                 bottomNav.getMenu().findItem(R.id.nav_map).setChecked(true);
                 setTitle("Map");
@@ -80,12 +86,26 @@ public class MainActivity extends AppCompatActivity {
                 // 현재 화면이 WriteFragment인지 확인하고 내용이 있는지 체크
                 if (currentFragment instanceof WriteFragment) {
                     WriteFragment writeFrag = (WriteFragment) currentFragment;
+                    
+                    // 저장 중이면 탭 전환 완전히 차단
+                    if (writeFrag.isSaving()) {
+                        bottomNav.getMenu().findItem(previousTabId).setChecked(true);
+                        android.widget.Toast.makeText(MainActivity.this, 
+                                "저장 중입니다. 잠시만 기다려주세요.", 
+                                android.widget.Toast.LENGTH_SHORT).show();
+                        return false;
+                    }
+                    
+                    // 내용이 있으면 확인 다이얼로그 표시
                     if (writeFrag.hasChanges()) {
                         int previousSelectedId = bottomNav.getSelectedItemId();
                         new androidx.appcompat.app.AlertDialog.Builder(MainActivity.this)
                                 .setTitle("작성 취소")
                                 .setMessage("이 페이지를 나가면 작성 중인 내용이 사라집니다. 계속하시겠습니까?")
-                                .setPositiveButton("나가기", (dialog, which) -> switchFragment(itemId))
+                                .setPositiveButton("나가기", (dialog, which) -> {
+                                    // WriteFragment를 안전하게 제거하고 탭 전환
+                                    switchFragmentFromWriteFragment(itemId);
+                                })
                                 .setNegativeButton("취소", (dialog, which) ->
                                         bottomNav.getMenu().findItem(previousSelectedId).setChecked(true))
                                 .setOnCancelListener(dialog ->
@@ -99,6 +119,55 @@ public class MainActivity extends AppCompatActivity {
                 return true;
             }
 
+            private void switchFragmentFromWriteFragment(int itemId) {
+                // WriteFragment에서 나갈 때 안전하게 처리
+                if (isFragmentTransitioning) return;
+                
+                FragmentInfo fragmentInfo = getFragmentInfo(itemId);
+                if (fragmentInfo == null) return;
+
+                isFragmentTransitioning = true;
+
+                FragmentManager fm = getSupportFragmentManager();
+                
+                try {
+                    // 백스택에 WriteFragment가 있으면 먼저 제거
+                    if (fm.getBackStackEntryCount() > 0) {
+                        fm.popBackStackImmediate(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
+                    }
+                    
+                    // 현재 프래그먼트가 WriteFragment면 제거
+                    Fragment currentFragment = fm.findFragmentById(R.id.fragment_container);
+                    if (currentFragment instanceof WriteFragment) {
+                        fm.beginTransaction()
+                                .remove(currentFragment)
+                                .commitAllowingStateLoss();
+                    }
+                    
+                    // 약간의 딜레이 후 탭 전환 (프래그먼트 제거 완료 대기)
+                    bottomNav.postDelayed(() -> {
+                        try {
+                            fm.beginTransaction()
+                                    .replace(R.id.fragment_container, fragmentInfo.fragment)
+                                    .commitAllowingStateLoss();
+                            
+                            setTitle(fragmentInfo.title);
+                            bottomNav.getMenu().findItem(itemId).setChecked(true);
+                            previousTabId = itemId;
+                        } catch (Exception e) {
+                            android.util.Log.e("MainActivity", "Error switching fragment after WriteFragment", e);
+                            bottomNav.getMenu().findItem(previousTabId).setChecked(true);
+                        } finally {
+                            bottomNav.postDelayed(() -> isFragmentTransitioning = false, 100);
+                        }
+                    }, 50);
+                } catch (Exception e) {
+                    android.util.Log.e("MainActivity", "Error removing WriteFragment", e);
+                    isFragmentTransitioning = false;
+                    bottomNav.getMenu().findItem(previousTabId).setChecked(true);
+                }
+            }
+            
             private void switchFragment(int itemId) {
                 // 이미 전환 중이면 무시
                 if (isFragmentTransitioning) return;
@@ -110,19 +179,47 @@ public class MainActivity extends AppCompatActivity {
 
                 FragmentManager fm = getSupportFragmentManager();
                 
-                // 백스택 정리 (비동기로 처리하여 블로킹 방지)
-                if (fm.getBackStackEntryCount() > 0) {
-                    fm.popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
+                // 현재 프래그먼트 확인
+                Fragment currentFragment = fm.findFragmentById(R.id.fragment_container);
+                
+                // WriteFragment가 백스택에 있거나 현재 화면인 경우 안전하게 처리
+                if (currentFragment instanceof WriteFragment) {
+                    WriteFragment writeFrag = (WriteFragment) currentFragment;
+                    // 저장 중이면 전환 차단 (이미 위에서 체크했지만 안전을 위해)
+                    if (writeFrag.isSaving()) {
+                        isFragmentTransitioning = false;
+                        bottomNav.getMenu().findItem(previousTabId).setChecked(true);
+                        return;
+                    }
+                }
+                
+                // 백스택 정리 (동기적으로 처리하여 안전성 확보)
+                try {
+                    if (fm.getBackStackEntryCount() > 0) {
+                        fm.popBackStackImmediate(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
+                    }
+                } catch (Exception e) {
+                    android.util.Log.e("MainActivity", "Error clearing back stack", e);
+                    // 백스택 정리 실패해도 계속 진행
                 }
 
-                // 애니메이션 없이 즉시 교체
+                // 프래그먼트 교체
                 try {
+                    // 현재 프래그먼트가 여전히 WriteFragment인지 다시 확인
+                    Fragment checkFragment = fm.findFragmentById(R.id.fragment_container);
+                    if (checkFragment instanceof WriteFragment && ((WriteFragment) checkFragment).isSaving()) {
+                        isFragmentTransitioning = false;
+                        bottomNav.getMenu().findItem(previousTabId).setChecked(true);
+                        return;
+                    }
+                    
                     fm.beginTransaction()
                             .replace(R.id.fragment_container, fragmentInfo.fragment)
                             .commitAllowingStateLoss();
                 } catch (Exception e) {
-                    // 전환 실패 시 플래그 리셋
+                    android.util.Log.e("MainActivity", "Error switching fragment", e);
                     isFragmentTransitioning = false;
+                    bottomNav.getMenu().findItem(previousTabId).setChecked(true);
                     return;
                 }
 
@@ -131,7 +228,7 @@ public class MainActivity extends AppCompatActivity {
                 previousTabId = itemId;
                 
                 // 전환 완료 후 플래그 리셋 (약간의 딜레이를 두어 연속 클릭 방지)
-                bottomNav.postDelayed(() -> isFragmentTransitioning = false, 100);
+                bottomNav.postDelayed(() -> isFragmentTransitioning = false, 150);
             }
         });
         
@@ -190,6 +287,10 @@ public class MainActivity extends AppCompatActivity {
                             .replace(R.id.fragment_container, writeFragment)
                             .commit();
                     setTitle("글쓰기");
+                    if (bottomNav != null) {
+                        bottomNav.setEnabled(true);
+                        bottomNav.getMenu().findItem(R.id.nav_my_list).setChecked(true);
+                    }
                     previousDialog.dismiss();
                 })
                 .setNegativeButton("수정하기", null)
@@ -200,6 +301,9 @@ public class MainActivity extends AppCompatActivity {
     public void showTravelInfoDialog() {
         previousTabId = bottomNav != null ? bottomNav.getSelectedItemId() : R.id.nav_my_list;
         isTravelInfoFlowActive = true;
+        if (bottomNav != null) {
+            bottomNav.setEnabled(false); // 여행 정보 다이얼로그 동안 탭 전환 비활성화
+        }
 
         // TravelInfo 다이얼로그가 떠 있는 동안 배경에 WriteFragment를 미리 표시
         WriteFragment draftWriteFragment = new WriteFragment();
@@ -250,13 +354,26 @@ public class MainActivity extends AppCompatActivity {
 
             android.widget.Button negativeButton = dialog.getButton(android.app.AlertDialog.BUTTON_NEGATIVE);
             negativeButton.setOnClickListener(v -> {
+                if (bottomNav != null) {
+                    bottomNav.setEnabled(true);
+                }
                 restorePreviousTab();
                 dialog.dismiss();
             });
         });
 
-        dialog.setOnCancelListener(d -> restorePreviousTab());
-        dialog.setOnDismissListener(d -> restorePreviousTab());
+        dialog.setOnCancelListener(d -> {
+            if (bottomNav != null) {
+                bottomNav.setEnabled(true);
+            }
+            restorePreviousTab();
+        });
+        dialog.setOnDismissListener(d -> {
+            if (bottomNav != null) {
+                bottomNav.setEnabled(true);
+            }
+            restorePreviousTab();
+        });
 
         dialog.show();
     }

@@ -10,7 +10,6 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageButton;
 import android.widget.PopupMenu;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -52,7 +51,6 @@ public class ListFragment extends Fragment {
     private TextView tvPinsCount;
     private TextView tvCurrentLocation;
     private View locationBadge;
-    private ImageButton btnSettings;
     private FloatingActionButton fabAddButton;
 
     private FirebaseFirestore db;
@@ -86,7 +84,6 @@ public class ListFragment extends Fragment {
         tvPinsCount = view.findViewById(R.id.tvPinsCount);
         tvCurrentLocation = view.findViewById(R.id.tvCurrentLocation);
         locationBadge = view.findViewById(R.id.locationBadge);
-        btnSettings = view.findViewById(R.id.btnSettings);
 
         // 위치 서비스 초기화
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity());
@@ -96,20 +93,6 @@ public class ListFragment extends Fragment {
         
         // 현재 위치 가져오기
         getCurrentLocation();
-
-        // 설정 버튼 클릭 리스너
-        if (btnSettings != null) {
-            btnSettings.setOnClickListener(v -> {
-                // 마이페이지로 이동
-                requireActivity().getSupportFragmentManager().beginTransaction()
-                        .replace(R.id.fragment_container, new MypageFragment())
-                        .addToBackStack(null)
-                        .commit();
-                if (getActivity() instanceof androidx.appcompat.app.AppCompatActivity) {
-                    ((androidx.appcompat.app.AppCompatActivity) getActivity()).setTitle("Profile");
-                }
-            });
-        }
 
         // FAB 버튼 초기화 및 클릭 리스너 설정
         fabAddButton = view.findViewById(R.id.fab_add_button);

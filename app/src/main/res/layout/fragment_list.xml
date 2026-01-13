@@ -94,15 +94,6 @@
                         android:textSize="14sp"
                         android:textColor="#6B7280"/>
                 </LinearLayout>
-
-                <ImageButton
-                    android:id="@+id/btnSettings"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:src="@android:drawable/ic_menu_preferences"
-                    android:contentDescription="설정"
-                    android:tint="#374151"/>
             </LinearLayout>
 
             <!-- 프로필 카드 -->
