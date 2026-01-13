@@ -18,6 +18,7 @@ public class MainActivity extends AppCompatActivity {
     private BottomNavigationView bottomNav; // 네비게이션 바 참조
 
     private boolean isTravelInfoFlowActive = false; // 여행 정보 입력 다이얼로그 진행 여부
+    private boolean isFragmentTransitioning = false; // 프래그먼트 전환 중 플래그
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -62,6 +63,13 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public boolean onNavigationItemSelected(@NonNull MenuItem item) {
                 int itemId = item.getItemId();
+                
+                // 전환 중이면 무시
+                if (isFragmentTransitioning) {
+                    bottomNav.getMenu().findItem(previousTabId).setChecked(true);
+                    return false;
+                }
+
                 Fragment currentFragment = getSupportFragmentManager().findFragmentById(R.id.fragment_container);
 
                 // 현재 선택된 탭을 다시 누른 경우 처리
@@ -92,22 +100,38 @@ public class MainActivity extends AppCompatActivity {
             }
 
             private void switchFragment(int itemId) {
+                // 이미 전환 중이면 무시
+                if (isFragmentTransitioning) return;
+                
                 FragmentInfo fragmentInfo = getFragmentInfo(itemId);
                 if (fragmentInfo == null) return;
 
+                isFragmentTransitioning = true;
+
                 FragmentManager fm = getSupportFragmentManager();
+                
+                // 백스택 정리 (비동기로 처리하여 블로킹 방지)
                 if (fm.getBackStackEntryCount() > 0) {
-                    fm.popBackStackImmediate(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
+                    fm.popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
                 }
 
-                fm.beginTransaction()
-                        .setCustomAnimations(android.R.anim.fade_in, android.R.anim.fade_out)
-                        .replace(R.id.fragment_container, fragmentInfo.fragment)
-                        .commitNowAllowingStateLoss();
+                // 애니메이션 없이 즉시 교체
+                try {
+                    fm.beginTransaction()
+                            .replace(R.id.fragment_container, fragmentInfo.fragment)
+                            .commitAllowingStateLoss();
+                } catch (Exception e) {
+                    // 전환 실패 시 플래그 리셋
+                    isFragmentTransitioning = false;
+                    return;
+                }
 
                 setTitle(fragmentInfo.title);
                 bottomNav.getMenu().findItem(itemId).setChecked(true);
                 previousTabId = itemId;
+                
+                // 전환 완료 후 플래그 리셋 (약간의 딜레이를 두어 연속 클릭 방지)
+                bottomNav.postDelayed(() -> isFragmentTransitioning = false, 100);
             }
         });
         
