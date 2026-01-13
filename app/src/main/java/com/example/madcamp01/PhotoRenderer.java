@@ -2,9 +2,10 @@ package com.example.madcamp01;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
-import android.view.ViewGroup;
-import android.widget.ImageView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import com.bumptech.glide.Glide;
@@ -21,10 +22,13 @@ import com.google.maps.android.clustering.ClusterManager;
 import com.google.maps.android.clustering.view.DefaultClusterRenderer;
 
 public class PhotoRenderer extends DefaultClusterRenderer<PhotoItem> {
+    private static final int MARKER_SIZE = 120;
+    private static final float BADGE_SIZE_RATIO = 0.35f;
+    private static final int MAX_BADGE_COUNT = 9;
+    
     private final Context context;
+    
     protected boolean shouldRenderAsCluster(@NonNull Cluster<PhotoItem> cluster) {
-        // 마커가 2개 이상 겹치면 무조건 클러스터링(그룹화)을 하되,
-        // 나중에 이미지로 덮어씌울 것이므로 true를 반환합니다.
         return cluster.getSize() > 1;
     }
     public PhotoRenderer(Context context, GoogleMap map, ClusterManager<PhotoItem> clusterManager) {
@@ -36,9 +40,9 @@ public class PhotoRenderer extends DefaultClusterRenderer<PhotoItem> {
     @Override
 
     protected void onBeforeClusterRendered(@NonNull Cluster<PhotoItem> cluster, @NonNull MarkerOptions markerOptions) {
-        // 중요: 여기서 기본 숫자가 그려진 아이콘이 세팅됩니다.
-        // 숫자가 보이는 게 싫다면 여기서 투명한 아이콘이나 임시 아이콘을 넣어버릴 수 있습니다.
-        // 하지만 Glide가 금방 로드할 것이므로, 여기서는 그냥 두거나 투명 아이콘을 세팅합니다.
+        Bitmap transparentBitmap = Bitmap.createBitmap(MARKER_SIZE, MARKER_SIZE, Bitmap.Config.ARGB_8888);
+        transparentBitmap.eraseColor(0x00000000);
+        markerOptions.icon(BitmapDescriptorFactory.fromBitmap(transparentBitmap));
     }
 
     @Override
@@ -51,14 +55,18 @@ public class PhotoRenderer extends DefaultClusterRenderer<PhotoItem> {
     @Override
     protected void onClusterRendered(@NonNull Cluster<PhotoItem> cluster, @NonNull Marker marker) {
         PhotoItem topItem = cluster.getItems().iterator().next();
-        loadMarkerImage(topItem.getPhotoUrl(), marker);
+        int clusterSize = cluster.getSize();
+        loadMarkerImageWithBadge(topItem.getPhotoUrl(), marker, clusterSize);
     }
 
     private void loadMarkerImage(String url, Marker marker) {
-        // 빠른 로드를 위해 썸네일 우선, 작은 사이즈, 캐싱 강화
+        loadMarkerImageWithBadge(url, marker, 1);
+    }
+
+    private void loadMarkerImageWithBadge(String url, Marker marker, int count) {
         RequestOptions options = new RequestOptions()
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
-                .override(96,96)   // 조금 더 크게 로드
+                .override(MARKER_SIZE, MARKER_SIZE)
                 .circleCrop();
 
         Glide.with(context)
@@ -70,10 +78,60 @@ public class PhotoRenderer extends DefaultClusterRenderer<PhotoItem> {
                 .into(new CustomTarget<Bitmap>() {
                     @Override
                     public void onResourceReady(@NonNull Bitmap resource, @Nullable Transition<? super Bitmap> transition) {
-                        marker.setIcon(BitmapDescriptorFactory.fromBitmap(resource));
+                        Bitmap finalBitmap = resource;
+                        // 2개 이상일 때만 배지 추가
+                        if (count > 1) {
+                            finalBitmap = addBadgeToBitmap(resource, count);
+                        }
+                        marker.setIcon(BitmapDescriptorFactory.fromBitmap(finalBitmap));
                     }
                     @Override
                     public void onLoadCleared(@Nullable Drawable placeholder) {}
                 });
+    }
+
+    /**
+     * 썸네일 이미지 우상단에 개수 배지 추가
+     */
+    private Bitmap addBadgeToBitmap(Bitmap original, int count) {
+        int size = original.getWidth();
+        Bitmap result = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(result);
+        
+        canvas.drawBitmap(original, 0, 0, null);
+        
+        int badgeSize = (int) (size * BADGE_SIZE_RATIO);
+        int badgeX = size - badgeSize;
+        int badgeY = 0;
+        int centerX = badgeX + badgeSize / 2;
+        int centerY = badgeY + badgeSize / 2;
+        int radius = badgeSize / 2;
+        
+        // 배지 원 그리기
+        Paint badgePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        badgePaint.setColor(0xFF3B82F6);
+        canvas.drawCircle(centerX, centerY, radius, badgePaint);
+        
+        // 흰색 테두리
+        Paint borderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        borderPaint.setColor(0xFFFFFFFF);
+        borderPaint.setStyle(Paint.Style.STROKE);
+        borderPaint.setStrokeWidth(size * 0.02f);
+        canvas.drawCircle(centerX, centerY, radius - size * 0.01f, borderPaint);
+        
+        // 숫자 텍스트 그리기
+        Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        textPaint.setColor(0xFFFFFFFF);
+        textPaint.setTextSize(badgeSize * 0.5f);
+        textPaint.setTextAlign(Paint.Align.CENTER);
+        textPaint.setFakeBoldText(true);
+        
+        String countText = count > MAX_BADGE_COUNT ? MAX_BADGE_COUNT + "+" : String.valueOf(count);
+        Rect textBounds = new Rect();
+        textPaint.getTextBounds(countText, 0, countText.length(), textBounds);
+        float textY = centerY + textBounds.height() / 2;
+        canvas.drawText(countText, centerX, textY, textPaint);
+        
+        return result;
     }
 }
