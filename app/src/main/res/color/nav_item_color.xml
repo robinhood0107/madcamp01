@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- 선택된 아이템 (활성) - 검정색 -->
-    <item android:color="#000000" android:state_checked="true" />
-    <!-- 선택되지 않은 아이템 (비활성) - 회색 -->
-    <item android:color="#9CA3AF" />
+    <!-- Active: 더 진한 남색톤으로 명암 대비 확보 -->
+    <item android:color="#111827" android:state_checked="true" />
+    <!-- Inactive: 중간 그레이로 가독성 확보 -->
+    <item android:color="#6B7280" />
 </selector>

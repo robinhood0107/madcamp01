@@ -539,17 +539,28 @@ public class WriteFragment extends Fragment {
      * PostItem의 모든 사진을 Firebase Storage에 업로드하고 Firestore에 저장.
      */
     private void uploadToFirebase() {
-        String title = editTripTitle.getText().toString();
+        if (!isAdded() || getContext() == null) {
+            return;
+        }
+        
+        if (isSaving) {
+            return; // 이미 저장 중이면 중복 실행 방지
+        }
+        
+        String title = editTripTitle.getText().toString().trim();
         boolean isPublic = switchIsPublic.isChecked();
+        
         if (title.isEmpty() || currentPostItem.getPhotoCount() == 0) {
             Toast.makeText(getContext(), "제목과 사진을 입력해주세요.", Toast.LENGTH_SHORT).show();
             return;
         }
         
+        // 수정 모드에서는 startDate가 없어도 괜찮음 (기존 값 사용)
         if (editPostId == null && startDate == null) {
             Toast.makeText(getContext(), "여행 정보가 없습니다. 다시 시도해주세요.", Toast.LENGTH_SHORT).show();
             return;
         }
+        
         isSaving = true;
         showProgressDialog();
         
@@ -588,8 +599,11 @@ public class WriteFragment extends Fragment {
                 
                 @Override
                 public void onError(String error) {
-                    hideProgressDialog();
-                    Toast.makeText(getContext(), "이미지 업로드 실패: " + error, Toast.LENGTH_SHORT).show();
+                    isSaving = false;
+                    if (isAdded() && getContext() != null) {
+                        hideProgressDialog();
+                        Toast.makeText(getContext(), "이미지 업로드 실패: " + error, Toast.LENGTH_SHORT).show();
+                    }
                 }
             });
         }
@@ -764,13 +778,46 @@ public class WriteFragment extends Fragment {
      * PostItem의 모든 데이터를 Firestore에 저장하거나 업데이트.
      */
     private void savePostInfoToFirestore(String title, boolean isPublic) {
+        if (!isAdded() || getContext() == null) {
+            isSaving = false;
+            return;
+        }
+        
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
-        String uid = (user != null) ? user.getUid() : "anonymous";
-        String email = (user != null) ? user.getEmail() : "익명";
+        if (user == null) {
+            isSaving = false;
+            hideProgressDialog();
+            Toast.makeText(getContext(), "로그인이 필요합니다.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        
+        String uid = user.getUid();
+        String email = user.getEmail();
+        if (email == null) {
+            email = "익명";
+        }
+
+        // 수정 모드에서 startDate와 travelDays가 없으면 기존 값 사용
+        if (editPostId != null) {
+            if (startDate == null && currentPostItem.getStartDate() != null) {
+                startDate = currentPostItem.getStartDate();
+            }
+            if (travelDays <= 0 && currentPostItem.getTravelDays() > 0) {
+                travelDays = currentPostItem.getTravelDays();
+            }
+        }
+        
+        // 최종적으로도 없으면 기본값 설정
+        if (startDate == null) {
+            startDate = new Date();
+        }
+        if (travelDays <= 0) {
+            travelDays = 1;
+        }
 
         currentPostItem.setTitle(title);
-        currentPostItem.setStartDate(startDate != null ? startDate : new Date());
-        currentPostItem.setTravelDays(travelDays > 0 ? travelDays : 1);
+        currentPostItem.setStartDate(startDate);
+        currentPostItem.setTravelDays(travelDays);
         currentPostItem.setIsPublic(isPublic);
         currentPostItem.setUserId(uid);
         currentPostItem.setUserEmail(email);
@@ -825,17 +872,35 @@ public class WriteFragment extends Fragment {
 
         int photoCount = currentPostItem.getPhotoCount();
         for (int i = 0; i < photoCount; i++) {
-            double lat = currentPostItem.getImageLatitude(i);
-            double lon = currentPostItem.getImageLongitude(i);
+            Double latObj = currentPostItem.getImageLatitude(i);
+            Double lonObj = currentPostItem.getImageLongitude(i);
+            
+            if (latObj == null || lonObj == null) {
+                continue;
+            }
+            
+            double lat = latObj;
+            double lon = lonObj;
 
             // 미리 만들어두신 getCountryAndCity 함수 활용
-            String[] locationInfo = getCountryAndCity(lat, lon);
-            // null이나 "어딘가에서"가 아닌 경우만 추가
-            if (locationInfo[0] != null && !locationInfo[0].isEmpty() && !locationInfo[0].equals("어딘가에서")) {
-                countries.add(locationInfo[0]); // 국가명
-            }
-            if (locationInfo[1] != null && !locationInfo[1].isEmpty() && !locationInfo[1].equals("어딘가에서")) {
-                cities.add(locationInfo[1]);    // 도시명
+            try {
+                String[] locationInfo = getCountryAndCity(lat, lon);
+                // null이나 "어딘가에서"가 아닌 경우만 추가
+                if (locationInfo != null && locationInfo.length >= 2) {
+                    if (locationInfo[0] != null && !locationInfo[0].isEmpty() && !locationInfo[0].equals("어딘가에서")) {
+                        if (!countries.contains(locationInfo[0])) {
+                            countries.add(locationInfo[0]); // 국가명
+                        }
+                    }
+                    if (locationInfo[1] != null && !locationInfo[1].isEmpty() && !locationInfo[1].equals("어딘가에서")) {
+                        if (!cities.contains(locationInfo[1])) {
+                            cities.add(locationInfo[1]);    // 도시명
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                android.util.Log.e("WriteFragment", "Error getting location info", e);
+                // 계속 진행
             }
         }
 
@@ -861,26 +926,48 @@ public class WriteFragment extends Fragment {
             db.collection("TravelPosts").document(editPostId)
                     .set(post, SetOptions.merge())
                     .addOnSuccessListener(aVoid -> {
-                        hideProgressDialog();
-                        Toast.makeText(getContext(), "여행 기록이 수정되었습니다!", Toast.LENGTH_SHORT).show();
-                        goToMainList();
+                        isSaving = false;
+                        if (isAdded() && getContext() != null) {
+                            hideProgressDialog();
+                            Toast.makeText(getContext(), "여행 기록이 수정되었습니다!", Toast.LENGTH_SHORT).show();
+                            goToMainList();
+                        }
                     })
                     .addOnFailureListener(e -> {
-                        hideProgressDialog();
-                        Toast.makeText(getContext(), "수정 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        isSaving = false;
+                        android.util.Log.e("WriteFragment", "Error updating post", e);
+                        if (isAdded() && getContext() != null) {
+                            hideProgressDialog();
+                            String errorMsg = e.getMessage();
+                            if (errorMsg == null || errorMsg.isEmpty()) {
+                                errorMsg = "알 수 없는 오류가 발생했습니다.";
+                            }
+                            Toast.makeText(getContext(), "수정 실패: " + errorMsg, Toast.LENGTH_SHORT).show();
+                        }
                     });
         } else {
             post.put("createdAt", FieldValue.serverTimestamp());
             db.collection("TravelPosts")
                     .add(post)
                     .addOnSuccessListener(documentReference -> {
-                        hideProgressDialog();
-                        Toast.makeText(getContext(), "여행 기록이 성공적으로 저장되었습니다!", Toast.LENGTH_SHORT).show();
-                        goToMainList();
+                        isSaving = false;
+                        if (isAdded() && getContext() != null) {
+                            hideProgressDialog();
+                            Toast.makeText(getContext(), "여행 기록이 성공적으로 저장되었습니다!", Toast.LENGTH_SHORT).show();
+                            goToMainList();
+                        }
                     })
                     .addOnFailureListener(e -> {
-                        hideProgressDialog();
-                        Toast.makeText(getContext(), "저장 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        isSaving = false;
+                        android.util.Log.e("WriteFragment", "Error saving post", e);
+                        if (isAdded() && getContext() != null) {
+                            hideProgressDialog();
+                            String errorMsg = e.getMessage();
+                            if (errorMsg == null || errorMsg.isEmpty()) {
+                                errorMsg = "알 수 없는 오류가 발생했습니다.";
+                            }
+                            Toast.makeText(getContext(), "저장 실패: " + errorMsg, Toast.LENGTH_SHORT).show();
+                        }
                     });
         }
     }
@@ -900,18 +987,22 @@ public class WriteFragment extends Fragment {
         return "주소 변환 실패";
     }
     private String[] getCountryAndCity(double lat, double lon) {
-        String country = "어딘가에서";
-        String city = "어딘가에서";
+        String country = null;
+        String city = null;
+
+        if (getContext() == null || (!Geocoder.isPresent())) {
+            return new String[]{country, city};
+        }
 
         if (lat != 0.0 || lon != 0.0) {
-            Geocoder geocoder = new Geocoder(getContext(), Locale.getDefault());
             try {
+                Geocoder geocoder = new Geocoder(getContext(), Locale.getDefault());
                 List<Address> addresses = geocoder.getFromLocation(lat, lon, 1);
                 if (addresses != null && !addresses.isEmpty()) {
                     Address address = addresses.get(0);
 
                     country = address.getCountryName();
-                    if (country == null || country.isEmpty()) {
+                    if (country != null && country.isEmpty()) {
                         country = null;
                     }
 
@@ -922,32 +1013,54 @@ public class WriteFragment extends Fragment {
                     if (city == null || city.isEmpty()) {
                         city = address.getSubAdminArea();
                     }
-                    if (city == null || city.isEmpty()) {
+                    if (city != null && city.isEmpty()) {
                         city = null;
                     }
                 }
+            } catch (IOException e) {
+                android.util.Log.e("WriteFragment", "Geocoder error", e);
             } catch (Exception e) {
-                e.printStackTrace();
+                android.util.Log.e("WriteFragment", "Unexpected error in getCountryAndCity", e);
             }
         }
         return new String[]{country, city};
     }
 
     private void goToMainList() {
-        if (getActivity() != null) {
-            ListFragment listFragment = new ListFragment();
-            getActivity().getSupportFragmentManager().popBackStack(null, androidx.fragment.app.FragmentManager.POP_BACK_STACK_INCLUSIVE);
-            getActivity().getSupportFragmentManager().beginTransaction()
-                    .replace(R.id.fragment_container, listFragment)
-                    .commit();
+        if (getActivity() == null || !isAdded()) return;
+        
+        try {
+            isSaving = false;
+            hideProgressDialog();
             
+            ListFragment listFragment = new ListFragment();
+            androidx.fragment.app.FragmentManager fm = getActivity().getSupportFragmentManager();
+            
+            // 백스택 정리
+            int backStackCount = fm.getBackStackEntryCount();
+            if (backStackCount > 0) {
+                fm.popBackStack(null, androidx.fragment.app.FragmentManager.POP_BACK_STACK_INCLUSIVE);
+            }
+            
+            // Fragment 교체
+            fm.beginTransaction()
+                    .replace(R.id.fragment_container, listFragment)
+                    .commitNowAllowingStateLoss();
+            
+            // 네비게이션 바 상태 업데이트
             BottomNavigationView bottomNav = getActivity().findViewById(R.id.bottom_navigation);
             if (bottomNav != null) {
                 bottomNav.getMenu().findItem(R.id.nav_my_list).setChecked(true);
             }
             
+            // 타이틀 설정
             if (getActivity() instanceof androidx.appcompat.app.AppCompatActivity) {
-                ((androidx.appcompat.app.AppCompatActivity) getActivity()).setTitle("내 여행 리스트");
+                ((androidx.appcompat.app.AppCompatActivity) getActivity()).setTitle("My Feed");
+            }
+        } catch (Exception e) {
+            android.util.Log.e("WriteFragment", "Error in goToMainList", e);
+            if (getActivity() != null) {
+                Toast.makeText(getContext(), "화면 전환 중 오류가 발생했습니다.", Toast.LENGTH_SHORT).show();
             }
         }
     }

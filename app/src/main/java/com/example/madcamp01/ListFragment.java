@@ -5,7 +5,6 @@ import android.app.AlertDialog;
 import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Geocoder;
-import android.location.Location;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -17,9 +16,10 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -48,13 +48,12 @@ public class ListFragment extends Fragment {
     private boolean isLoading = false;
 
     // 헤더 및 프로필 카드 뷰
-    private TextView tvHeaderTitle;
     private TextView tvUsername;
     private TextView tvPinsCount;
-    private TextView tvBio;
     private TextView tvCurrentLocation;
     private View locationBadge;
     private ImageButton btnSettings;
+    private FloatingActionButton fabAddButton;
 
     private FirebaseFirestore db;
     private FirebaseStorage storage;
@@ -83,10 +82,8 @@ public class ListFragment extends Fragment {
         recyclerView.setLayoutManager(new LinearLayoutManager(view.getContext()));
 
         // 헤더 및 프로필 카드 뷰 초기화
-        tvHeaderTitle = view.findViewById(R.id.tvHeaderTitle);
         tvUsername = view.findViewById(R.id.tvUsername);
         tvPinsCount = view.findViewById(R.id.tvPinsCount);
-        tvBio = view.findViewById(R.id.tvBio);
         tvCurrentLocation = view.findViewById(R.id.tvCurrentLocation);
         locationBadge = view.findViewById(R.id.locationBadge);
         btnSettings = view.findViewById(R.id.btnSettings);
@@ -114,8 +111,17 @@ public class ListFragment extends Fragment {
             });
         }
 
+        // FAB 버튼 초기화 및 클릭 리스너 설정
+        fabAddButton = view.findViewById(R.id.fab_add_button);
+        if (fabAddButton != null) {
+            fabAddButton.setOnClickListener(v -> {
+                if (getActivity() instanceof MainActivity) {
+                    ((MainActivity) getActivity()).showTravelInfoDialog();
+                }
+            });
+        }
 
-        // [수정] 어댑터 생성 시 isMyList를 true로 전달
+        // 어댑터 생성 시 isMyList를 true로 전달
         adapter = new PostAdapter(view.getContext(), true);
         recyclerView.setAdapter(adapter);
 
@@ -309,17 +315,11 @@ public class ListFragment extends Fragment {
     private void setupHeader() {
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
         if (user != null) {
-            // 사용자 이메일을 그대로 표시
             String email = user.getEmail();
-            if (email != null) {
-                if (tvUsername != null) {
-                    tvUsername.setText(email);
-                }
+            if (email != null && tvUsername != null) {
+                tvUsername.setText(email);
             }
-
         }
-
-        // 게시물 수를 로드하여 게시물 수 업데이트
         updatePinsCount();
     }
 

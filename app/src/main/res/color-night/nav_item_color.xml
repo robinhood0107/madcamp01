@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Active: 밝은 톤으로 다크 모드 대비 강화 -->
+    <item android:color="#FFFFFFFF" android:state_checked="true" />
+    <!-- Inactive: 중간 그레이로 과도한 대비 방지 -->
+    <item android:color="#9CA3AF" />
+</selector>
