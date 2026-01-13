@@ -2,17 +2,10 @@
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
-    android:viewportHeight="24">
+    android:viewportHeight="24"
+    android:tint="@color/nav_item_color">
+    <!-- 심플한 맵 핀 아이콘 -->
     <path
-        android:fillColor="#9CA3AF"
-        android:pathData="M20.5,3l-16,0c-1.1,0 -2,0.9 -2,2v14c0,1.1 0.9,2 2,2l16,0c1.1,0 2,-0.9 2,-2L22.5,5c0,-1.1 -0.9,-2 -2,-2zM19.5,19l-14,0L5.5,5l14,0v14z"/>
-    <path
-        android:fillColor="#9CA3AF"
-        android:pathData="M7.5,7l9,0l0,2l-9,0z"/>
-    <path
-        android:fillColor="#9CA3AF"
-        android:pathData="M7.5,11l6,0l0,2l-6,0z"/>
-    <path
-        android:fillColor="#9CA3AF"
-        android:pathData="M7.5,15l9,0l0,2l-9,0z"/>
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,2C8.13,2 5,5.13 5,9c0,5.25 7,13 7,13s7,-7.75 7,-13c0,-3.87 -3.13,-7 -7,-7zM12,11.5c-1.38,0 -2.5,-1.12 -2.5,-2.5S10.62,6.5 12,6.5s2.5,1.12 2.5,2.5S13.38,11.5 12,11.5z"/>
 </vector>

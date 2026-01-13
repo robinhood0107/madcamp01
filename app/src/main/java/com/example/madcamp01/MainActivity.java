@@ -33,9 +33,10 @@ public class MainActivity extends AppCompatActivity {
             Fragment currentFragment = getSupportFragmentManager().findFragmentById(R.id.fragment_container);
             if (currentFragment == null) return;
 
-            // WriteFragment나 DetailFragment 등은 네비게이션 바 상태를 변경하지 않음
+            // WriteFragment, DetailFragment, FullScreenImageFragment 등은 네비게이션 바 상태를 변경하지 않음
             if (currentFragment instanceof WriteFragment || 
-                currentFragment instanceof DetailFragment) {
+                currentFragment instanceof DetailFragment ||
+                currentFragment instanceof FullScreenImageFragment) {
                 return;
             }
 
@@ -76,11 +77,47 @@ public class MainActivity extends AppCompatActivity {
                     return false;
                 }
 
-                Fragment currentFragment = getSupportFragmentManager().findFragmentById(R.id.fragment_container);
+                FragmentManager fm = getSupportFragmentManager();
+                Fragment currentFragment = fm.findFragmentById(R.id.fragment_container);
 
                 // 현재 선택된 탭을 다시 누른 경우 처리
                 if (itemId == bottomNav.getSelectedItemId()) {
                     return false;
+                }
+
+                // FullScreenImageFragment에서는 네비게이션 탭 전환을 막고, 닫기 버튼/뒤로가기로만 나가도록 처리
+                if (currentFragment instanceof FullScreenImageFragment) {
+                    // 기존 탭 상태 유지
+                    bottomNav.getMenu().findItem(previousTabId).setChecked(true);
+                    return false;
+                }
+
+                // Detail 화면에서는 전용 로직으로 처리 (백스택 정리 후 곧바로 탭 전환)
+                if (currentFragment instanceof DetailFragment) {
+
+                    FragmentInfo fragmentInfo = getFragmentInfo(itemId);
+                    if (fragmentInfo == null) return false;
+
+                    try {
+                        // Detail → List/Gallery/PostMap 등으로 안전하게 돌아가도록 백스택 전체 제거
+                        if (fm.getBackStackEntryCount() > 0) {
+                            fm.popBackStackImmediate(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
+                        }
+
+                        fm.beginTransaction()
+                                .replace(R.id.fragment_container, fragmentInfo.fragment)
+                                .commitAllowingStateLoss();
+
+                        setTitle(fragmentInfo.title);
+                        bottomNav.getMenu().findItem(itemId).setChecked(true);
+                        previousTabId = itemId;
+                    } catch (Exception e) {
+                        android.util.Log.e("MainActivity", "Error switching from FullScreen/Detail", e);
+                        bottomNav.getMenu().findItem(previousTabId).setChecked(true);
+                        return false;
+                    }
+
+                    return true;
                 }
 
                 // 현재 화면이 WriteFragment인지 확인하고 내용이 있는지 체크
@@ -236,8 +273,18 @@ public class MainActivity extends AppCompatActivity {
         OnBackPressedCallback callback = new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                if (getSupportFragmentManager().getBackStackEntryCount() > 0) {
-                    getSupportFragmentManager().popBackStack();
+                FragmentManager fm = getSupportFragmentManager();
+                Fragment currentFragment = fm.findFragmentById(R.id.fragment_container);
+                
+                // FullScreenImageFragment나 DetailFragment, WriteFragment가 있으면 백스택으로 돌아가기
+                if (currentFragment instanceof FullScreenImageFragment || 
+                    currentFragment instanceof DetailFragment ||
+                    currentFragment instanceof WriteFragment) {
+                    if (fm.getBackStackEntryCount() > 0) {
+                        fm.popBackStack();
+                    }
+                } else if (fm.getBackStackEntryCount() > 0) {
+                    fm.popBackStack();
                 } else {
                     new androidx.appcompat.app.AlertDialog.Builder(MainActivity.this)
                             .setTitle("앱 종료")
@@ -387,13 +434,46 @@ public class MainActivity extends AppCompatActivity {
         if (fragmentInfo == null) return;
 
         FragmentManager fm = getSupportFragmentManager();
-        fm.popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
-        fm.beginTransaction()
-                .replace(R.id.fragment_container, fragmentInfo.fragment)
-                .commit();
-        setTitle(fragmentInfo.title);
-        if (bottomNav != null) {
-            bottomNav.getMenu().findItem(previousTabId).setChecked(true);
+        
+        try {
+            // 백스택 정리 (FullScreenImageFragment, DetailFragment, WriteFragment 등 모두 제거)
+            if (fm.getBackStackEntryCount() > 0) {
+                fm.popBackStackImmediate(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
+            }
+            
+            // 현재 프래그먼트 확인 및 제거
+            Fragment currentFragment = fm.findFragmentById(R.id.fragment_container);
+            if (currentFragment instanceof WriteFragment || 
+                currentFragment instanceof FullScreenImageFragment ||
+                currentFragment instanceof DetailFragment) {
+                fm.beginTransaction()
+                        .remove(currentFragment)
+                        .commitAllowingStateLoss();
+            }
+            
+            // 탭 복원
+            fm.beginTransaction()
+                    .replace(R.id.fragment_container, fragmentInfo.fragment)
+                    .commitAllowingStateLoss();
+            
+            setTitle(fragmentInfo.title);
+            if (bottomNav != null) {
+                bottomNav.getMenu().findItem(previousTabId).setChecked(true);
+            }
+        } catch (Exception e) {
+            android.util.Log.e("MainActivity", "Error restoring previous tab", e);
+            // 실패해도 계속 진행
+            try {
+                fm.beginTransaction()
+                        .replace(R.id.fragment_container, fragmentInfo.fragment)
+                        .commitAllowingStateLoss();
+                setTitle(fragmentInfo.title);
+                if (bottomNav != null) {
+                    bottomNav.getMenu().findItem(previousTabId).setChecked(true);
+                }
+            } catch (Exception e2) {
+                android.util.Log.e("MainActivity", "Error in fallback restore", e2);
+            }
         }
     }
 
