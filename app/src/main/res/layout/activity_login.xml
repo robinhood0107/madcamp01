@@ -1,57 +1,140 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="30dp"
-    android:gravity="center"
+    android:padding="32dp"
+    android:gravity="center_horizontal"
     android:background="#FFFFFF">
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="여행 기록장"
-        android:textSize="28sp"
+        android:textSize="32sp"
         android:textStyle="bold"
-        android:textColor="#333333"
-        android:layout_marginBottom="40dp"/>
+        android:textColor="#1A1A1A"
+        android:letterSpacing="-0.02" />
 
-    <EditText
-        android:id="@+id/edit_login_email"
-        android:layout_width="match_parent"
-        android:layout_height="50dp"
-        android:hint="이메일 (example@test.com)"
-        android:inputType="textEmailAddress"
-        android:layout_marginBottom="10dp"/>
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="당신의 여행을 기록하고 공유하세요"
+        android:textSize="16sp"
+        android:textColor="#888888"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="48dp" />
 
-    <EditText
-        android:id="@+id/edit_login_password"
+    <com.google.android.material.textfield.TextInputLayout
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
         android:layout_width="match_parent"
-        android:layout_height="50dp"
-        android:hint="비밀번호 (6자이상)"
-        android:inputType="textPassword"
-        android:layout_marginBottom="15dp" />
-    <EditText
-        android:id="@+id/edit_login_password_confirm"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="12dp"
+        app:boxStrokeColor="#E0E0E0"
+        app:hintTextColor="#666666">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/edit_login_email"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="이메일"
+            android:inputType="textEmailAddress"
+            android:textSize="15sp" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
         android:layout_width="match_parent"
-        android:layout_height="50dp"
-        android:hint="비밀번호 확인"
-        android:inputType="textPassword"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="12dp"
+        app:boxStrokeColor="#E0E0E0"
+        app:hintTextColor="#666666"
+        app:passwordToggleEnabled="true">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/edit_login_password"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="비밀번호"
+            android:inputType="textPassword"
+            android:textSize="15sp" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/layout_password_confirm"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="24dp"
         android:visibility="gone"
-        android:layout_marginBottom="15dp" />
-    <Button
+        app:boxStrokeColor="#E0E0E0"
+        app:hintTextColor="#666666"
+        app:passwordToggleEnabled="true">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/edit_login_password_confirm"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="비밀번호 확인"
+            android:inputType="textPassword"
+            android:textSize="15sp" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_main_action"
         android:layout_width="match_parent"
-        android:layout_height="55dp"
-        android:layout_marginTop="10dp"
-        android:text="로그인" />
+        android:layout_height="56dp"
+        android:text="로그인"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        app:cornerRadius="12dp"
+        android:backgroundTint="#1A1A1A"
+        android:textColor="#FFFFFF" />
 
     <TextView
         android:id="@+id/text_toggle_mode"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="계정이 없으신가요? 회원가입"
-        android:textColor="#757575"
-        android:padding="10dp" />
+        android:textColor="#666666"
+        android:padding="16dp"
+        android:textSize="14sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="24dp">
+        <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" android:background="#EEEEEE" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="또는" android:textColor="#BBBBBB" android:textSize="12sp" android:layout_marginHorizontal="16dp" />
+        <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" android:background="#EEEEEE" />
+    </LinearLayout>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_google_login"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:text="Google로 계속하기"
+        android:textColor="#333333"
+        android:textSize="16sp"
+        app:cornerRadius="12dp"
+        app:strokeColor="#E0E0E0"
+        app:icon="@drawable/ic_google"
+        app:iconTint="@null"
+        app:iconGravity="textStart" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1.2" />
 
 </LinearLayout>

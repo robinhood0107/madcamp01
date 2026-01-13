@@ -2,76 +2,92 @@ package com.example.madcamp01;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.View;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-import android.view.View;
+
+import com.google.android.gms.auth.api.signin.GoogleSignIn;
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
+import com.google.android.gms.auth.api.signin.GoogleSignInClient;
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
+import com.google.android.gms.common.api.ApiException;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.auth.AuthCredential;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.auth.GoogleAuthProvider;
 
 public class LoginActivity extends AppCompatActivity {
 
+    private static final int RC_SIGN_IN = 9001;
 
-    private EditText editEmail, editPassword;
-    private EditText editPasswordConfirm;
-    private Button btnMainAction;
+    private TextInputEditText editEmail, editPassword, editPasswordConfirm;
+    private TextInputLayout layoutPasswordConfirm;
+    private MaterialButton btnMainAction, btnGoogleLogin;
     private TextView textToggleMode;
-    private FirebaseAuth auth; // Firebase 인증 객체
-    private boolean isSignUpMode = false; // 회원가입 체크
+
+    private FirebaseAuth auth;
+    private GoogleSignInClient googleSignInClient;
+    private boolean isSignUpMode = false;
 
     @Override
     public void onStart() {
         super.onStart();
         FirebaseUser currentUser = auth.getCurrentUser();
         if (currentUser != null) {
-            // 이미 로그인되어 있다면 바로 메인으로 이동
             startActivity(new Intent(LoginActivity.this, MainActivity.class));
             finish();
-            return;
         }
     }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
-        // 2. Firebase Auth 초기화
         auth = FirebaseAuth.getInstance();
 
-        // 3. XML 위젯 연결
+        // Google Sign-In 설정
+        GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestIdToken("58745205594-g3j1m3jbfpo1mmnanq68jrg7ui26im5s.apps.googleusercontent.com")
+                .requestEmail()
+                .build();
+
+        googleSignInClient = GoogleSignIn.getClient(this, gso);
+
         editEmail = findViewById(R.id.edit_login_email);
         editPassword = findViewById(R.id.edit_login_password);
         editPasswordConfirm = findViewById(R.id.edit_login_password_confirm);
+        layoutPasswordConfirm = findViewById(R.id.layout_password_confirm);
         btnMainAction = findViewById(R.id.btn_main_action);
         textToggleMode = findViewById(R.id.text_toggle_mode);
+        btnGoogleLogin = findViewById(R.id.btn_google_login);
 
-        // 모드 전환 텍스트 클릭 시
         textToggleMode.setOnClickListener(v -> {
-            isSignUpMode = !isSignUpMode; // 상태 반전
-
+            isSignUpMode = !isSignUpMode;
             if (isSignUpMode) {
-                // 회원가입 모드로 전환
-                editPasswordConfirm.setVisibility(View.VISIBLE);
+                layoutPasswordConfirm.setVisibility(View.VISIBLE);
                 btnMainAction.setText("회원가입 하기");
                 textToggleMode.setText("이미 계정이 있나요? 로그인");
             } else {
-                // 로그인 모드로 전환
-                editPasswordConfirm.setVisibility(View.GONE);
+                layoutPasswordConfirm.setVisibility(View.GONE);
                 btnMainAction.setText("로그인");
                 textToggleMode.setText("계정이 없으신가요? 회원가입");
             }
         });
 
-        // 메인 버튼 클릭 시 (로그인 혹은 회원가입 실행)
         btnMainAction.setOnClickListener(v -> {
             String email = editEmail.getText().toString().trim();
             String password = editPassword.getText().toString().trim();
 
             if (isSignUpMode) {
-                // 회원가입 로직
                 String passwordConfirm = editPasswordConfirm.getText().toString().trim();
                 if (!password.equals(passwordConfirm)) {
                     Toast.makeText(this, "비밀번호가 일치하지 않습니다.", Toast.LENGTH_SHORT).show();
@@ -79,20 +95,53 @@ public class LoginActivity extends AppCompatActivity {
                 }
                 signUp(email, password);
             } else {
-                // 로그인 로직
                 signIn(email, password);
             }
         });
+
+        btnGoogleLogin.setOnClickListener(v -> {
+            Intent signInIntent = googleSignInClient.getSignInIntent();
+            startActivityForResult(signInIntent, RC_SIGN_IN);
+        });
     }
 
-    // 로그인 로직
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == RC_SIGN_IN) {
+            Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(data);
+            try {
+                GoogleSignInAccount account = task.getResult(ApiException.class);
+                firebaseAuthWithGoogle(account.getIdToken());
+            } catch (ApiException e) {
+                Toast.makeText(this, "구글 로그인 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    private void firebaseAuthWithGoogle(String idToken) {
+        AuthCredential credential = GoogleAuthProvider.getCredential(idToken, null);
+        auth.signInWithCredential(credential)
+                .addOnCompleteListener(this, task -> {
+                    if (task.isSuccessful()) {
+                        startActivity(new Intent(LoginActivity.this, MainActivity.class));
+                        finish();
+                    } else {
+                        Toast.makeText(this, "Firebase 인증 실패", Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
+
     private void signIn(String email, String password) {
+        if (email.isEmpty() || password.isEmpty()) {
+            Toast.makeText(this, "이메일과 비밀번호를 입력해주세요.", Toast.LENGTH_SHORT).show();
+            return;
+        }
         auth.signInWithEmailAndPassword(email, password)
                 .addOnCompleteListener(this, task -> {
                     if (task.isSuccessful()) {
-                        // 로그인 성공 -> 메인 화면으로 이동
-                        Intent intent = new Intent(LoginActivity.this, MainActivity.class);
-                        startActivity(intent);
+                        startActivity(new Intent(LoginActivity.this, MainActivity.class));
                         finish();
                     } else {
                         Toast.makeText(this, "로그인 실패: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
@@ -100,12 +149,19 @@ public class LoginActivity extends AppCompatActivity {
                 });
     }
 
-    // 회원가입 로직
     private void signUp(String email, String password) {
+        if (email.isEmpty() || password.isEmpty()) {
+            Toast.makeText(this, "이메일과 비밀번호를 입력해주세요.", Toast.LENGTH_SHORT).show();
+            return;
+        }
         auth.createUserWithEmailAndPassword(email, password)
                 .addOnCompleteListener(this, task -> {
                     if (task.isSuccessful()) {
                         Toast.makeText(this, "회원가입 성공! 로그인 해주세요.", Toast.LENGTH_SHORT).show();
+                        isSignUpMode = false;
+                        layoutPasswordConfirm.setVisibility(View.GONE);
+                        btnMainAction.setText("로그인");
+                        textToggleMode.setText("계정이 없으신가요? 회원가입");
                     } else {
                         Toast.makeText(this, "가입 실패: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
                     }

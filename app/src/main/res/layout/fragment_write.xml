@@ -1,66 +1,160 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:background="#FFFFFF"
+    android:padding="24dp">
 
-    <EditText
-        android:id="@+id/edit_trip_title"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="여행 제목을 입력하세요"
-        android:minHeight="48dp" />
-    <com.google.android.material.materialswitch.MaterialSwitch
-        android:id="@+id/switch_is_public"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_margin="16dp"
-        android:text="게시물 공개"
-        android:checked="true" />
-
+    <!-- Title Header -->
     <TextView
-        android:id="@+id/text_travel_period"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:layout_marginBottom="8dp"
-        android:padding="12dp"
-        android:background="#E3F2FD"
-        android:text="여행 기간: 설정되지 않음"
-        android:textSize="14sp"
-        android:textColor="#1976D2"
-        android:gravity="center" />
+        android:text="새 게시물 작성"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:textColor="#1A1A1A"
+        android:layout_marginBottom="32dp"/>
 
-    <Button
-        android:id="@+id/btn_add_photo"
+    <!-- Input Fields Section -->
+    <com.google.android.material.textfield.TextInputLayout
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="사진 추가하기" />
+        android:layout_marginBottom="16dp"
+        app:boxStrokeColor="#E0E0E0"
+        app:hintTextColor="#666666"
+        app:cornerRadius="12dp">
 
-    <Button
-        android:id="@+id/btn_change_travel_info"
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/edit_trip_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="여행 제목을 입력하세요"
+            android:textSize="16sp"
+            android:textColor="#333333"/>
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- Travel Period Info Box -->
+    <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="여행 일짜 변경"
-        android:visibility="gone" />
+        app:cardCornerRadius="12dp"
+        app:cardElevation="0dp"
+        app:cardBackgroundColor="#F8F9FA"
+        android:layout_marginBottom="24dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:padding="16dp">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@android:drawable/ic_menu_my_calendar"
+                app:tint="#666666"
+                android:layout_marginEnd="12dp"/>
+
+            <TextView
+                android:id="@+id/text_travel_period"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="여행 기간: 설정되지 않음"
+                android:textSize="14sp"
+                android:textColor="#333333" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_change_travel_info"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="변경"
+                android:textSize="12sp"
+                android:textColor="#1A1A1A"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"/>
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- Public Switch -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="24dp"
+        android:paddingHorizontal="4dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:text="전체 공개"
+            android:textSize="16sp"
+            android:textColor="#1A1A1A"
+            android:textStyle="bold"/>
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/switch_is_public"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:checked="true"
+            app:thumbTint="#FFFFFF"
+            app:trackTint="#1A1A1A" />
+    </LinearLayout>
+
+    <!-- Photo Section -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:text="사진"
+            android:textSize="16sp"
+            android:textColor="#1A1A1A"
+            android:textStyle="bold" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_add_photo"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="+ 추가하기"
+            android:textColor="#1A1A1A"
+            app:iconPadding="0dp"/>
+    </LinearLayout>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recycler_photos"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:layout_marginTop="16dp" />
+        android:layout_marginBottom="24dp"
+        android:clipToPadding="false"/>
 
-    <Button
+    <!-- Save Button -->
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_save"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:backgroundTint="#4CAF50"
-        android:text="저장하기"
-        android:textColor="@android:color/white" />
+        android:layout_height="56dp"
+        android:text="게시물 업로드"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        app:cornerRadius="12dp"
+        android:backgroundTint="#1A1A1A"
+        android:textColor="#FFFFFF" />
 
 </LinearLayout>
