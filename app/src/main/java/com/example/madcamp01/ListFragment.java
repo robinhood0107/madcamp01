@@ -1,21 +1,33 @@
 package com.example.madcamp01;
 
+import android.Manifest;
 import android.app.AlertDialog;
+import android.content.pm.PackageManager;
+import android.location.Address;
+import android.location.Geocoder;
+import android.location.Location;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.PopupMenu;
 import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
-import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -24,8 +36,10 @@ import com.google.firebase.firestore.Query;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public class ListFragment extends Fragment {
 
@@ -34,10 +48,27 @@ public class ListFragment extends Fragment {
     private ProgressBar loadingProgressBar;
     private boolean isLoading = false;
 
+    // 헤더 및 프로필 카드 뷰
+    private TextView tvHeaderTitle;
+    private TextView tvUsername;
+    private TextView tvPinsCount;
+    private TextView tvFollowers;
+    private TextView tvFollowing;
+    private TextView tvBio;
+    private TextView tvCurrentLocation;
+    private View locationBadge;
+    private ImageView ivProfilePicture;
+    private ImageButton btnSettings;
+    private ImageButton btnEditProfile;
+
     private FirebaseFirestore db;
     private FirebaseStorage storage;
     private DocumentSnapshot lastVisible;
     private final int LIMIT = 10;
+    
+    // 위치 관련
+    private FusedLocationProviderClient fusedLocationClient;
+    private static final int LOCATION_PERMISSION_REQUEST_CODE = 1001;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -53,7 +84,30 @@ public class ListFragment extends Fragment {
         recyclerView = view.findViewById(R.id.recyclerView);
         loadingProgressBar = view.findViewById(R.id.loadingProgressBar);
 
-        recyclerView.setLayoutManager(new GridLayoutManager(view.getContext(), 2));
+        // LinearLayoutManager로 변경 (세로 리스트)
+        recyclerView.setLayoutManager(new LinearLayoutManager(view.getContext()));
+
+        // 헤더 및 프로필 카드 뷰 초기화
+        tvHeaderTitle = view.findViewById(R.id.tvHeaderTitle);
+        tvUsername = view.findViewById(R.id.tvUsername);
+        tvPinsCount = view.findViewById(R.id.tvPinsCount);
+        tvFollowers = view.findViewById(R.id.tvFollowers);
+        tvFollowing = view.findViewById(R.id.tvFollowing);
+        tvBio = view.findViewById(R.id.tvBio);
+        tvCurrentLocation = view.findViewById(R.id.tvCurrentLocation);
+        locationBadge = view.findViewById(R.id.locationBadge);
+        ivProfilePicture = view.findViewById(R.id.ivProfilePicture);
+        btnSettings = view.findViewById(R.id.btnSettings);
+        btnEditProfile = view.findViewById(R.id.btnEditProfile);
+
+        // 위치 서비스 초기화
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity());
+
+        // 사용자 정보 로드 및 헤더 설정
+        setupHeader();
+        
+        // 현재 위치 가져오기
+        getCurrentLocation();
 
         // [수정] 지도 버튼 설정
         View btnOpenMap = view.findViewById(R.id.btn_open_map);
@@ -66,13 +120,27 @@ public class ListFragment extends Fragment {
                         .commit();
             });
         }
-        View fabAddPost = view.findViewById(R.id.btn_new_post); // XML의 ID와 일치해야 함
+        View fabAddPost = view.findViewById(R.id.btn_new_post);
         if (fabAddPost != null) {
             fabAddPost.setOnClickListener(v -> {
-                // MainActivity의 showWriteChoiceDialog() 호출
                 if (getActivity() instanceof MainActivity) {
                     ((MainActivity) getActivity()).showTravelInfoDialog();
                 }
+            });
+        }
+
+        // 설정 버튼 클릭 리스너
+        if (btnSettings != null) {
+            btnSettings.setOnClickListener(v -> {
+                // 설정 화면으로 이동하거나 다이얼로그 표시
+                Toast.makeText(getContext(), "설정 기능은 준비 중입니다.", Toast.LENGTH_SHORT).show();
+            });
+        }
+
+        // 프로필 편집 버튼 클릭 리스너
+        if (btnEditProfile != null) {
+            btnEditProfile.setOnClickListener(v -> {
+                Toast.makeText(getContext(), "프로필 편집 기능은 준비 중입니다.", Toast.LENGTH_SHORT).show();
             });
         }
 
@@ -173,6 +241,7 @@ public class ListFragment extends Fragment {
                     deletePostImages(item.getImages(), item.getImageThumbnails());
                     Toast.makeText(getContext(), "게시물이 삭제되었습니다.", Toast.LENGTH_SHORT).show();
                     loadMoreData(true);
+                    updatePinsCount(); // 삭제 후 게시물 수 업데이트
                 })
                 .addOnFailureListener(e -> {
                     Log.e("Firestore", "Error deleting document", e);
@@ -184,34 +253,29 @@ public class ListFragment extends Fragment {
      * Storage에서 원본 이미지와 썸네일 모두 삭제
      */
     private void deletePostImages(List<String> imageUrls, List<String> thumbnailUrls) {
-        // 원본 이미지 삭제
-        if (imageUrls != null && !imageUrls.isEmpty()) {
-            for (String imageUrl : imageUrls) {
-                if (imageUrl != null && !imageUrl.isEmpty() && imageUrl.startsWith("http")) {
-                    try {
-                        StorageReference photoRef = storage.getReferenceFromUrl(imageUrl);
-                        photoRef.delete().addOnFailureListener(e ->
-                                Log.e("FirebaseStorage", "Failed to delete image: " + imageUrl, e));
-                    } catch (Exception e) {
-                        Log.e("FirebaseStorage", "Error getting reference for image: " + imageUrl, e);
-                    }
+        deleteImageUrls(imageUrls, "image");
+        deleteImageUrls(thumbnailUrls, "thumbnail");
+    }
+
+    private void deleteImageUrls(List<String> urls, String type) {
+        if (urls == null || urls.isEmpty()) return;
+        
+        for (String url : urls) {
+            if (url != null && !url.isEmpty() && url.startsWith("http")) {
+                try {
+                    StorageReference ref = storage.getReferenceFromUrl(url);
+                    ref.delete().addOnFailureListener(e ->
+                            Log.e("FirebaseStorage", "Failed to delete " + type + ": " + url, e));
+                } catch (Exception e) {
+                    Log.e("FirebaseStorage", "Error getting reference for " + type + ": " + url, e);
                 }
             }
         }
-        
-        // 썸네일 삭제
-        if (thumbnailUrls != null && !thumbnailUrls.isEmpty()) {
-            for (String thumbnailUrl : thumbnailUrls) {
-                if (thumbnailUrl != null && !thumbnailUrl.isEmpty() && thumbnailUrl.startsWith("http")) {
-                    try {
-                        StorageReference thumbnailRef = storage.getReferenceFromUrl(thumbnailUrl);
-                        thumbnailRef.delete().addOnFailureListener(e ->
-                                Log.e("FirebaseStorage", "Failed to delete thumbnail: " + thumbnailUrl, e));
-                    } catch (Exception e) {
-                        Log.e("FirebaseStorage", "Error getting reference for thumbnail: " + thumbnailUrl, e);
-                    }
-                }
-            }
+    }
+
+    private void hideLocationBadge() {
+        if (locationBadge != null) {
+            locationBadge.setVisibility(View.GONE);
         }
     }
 
@@ -246,11 +310,21 @@ public class ListFragment extends Fragment {
 
             if (!queryDocumentSnapshots.isEmpty()) {
                 List<PostItem> newPosts = queryDocumentSnapshots.toObjects(PostItem.class);
-                adapter.addPostList(newPosts);
+                List<DocumentSnapshot> snapshots = new ArrayList<>();
+                for (DocumentSnapshot doc : queryDocumentSnapshots.getDocuments()) {
+                    snapshots.add(doc);
+                }
+                adapter.addPostList(newPosts, snapshots);
                 lastVisible = queryDocumentSnapshots.getDocuments().get(queryDocumentSnapshots.size() - 1);
+                
+                // 게시물 수 업데이트 (첫 로드일 때만)
+                if (isRefresh) {
+                    updatePinsCount();
+                }
             } else if (lastVisible == null) {
                 // 첫 로드인데 게시물이 없는 경우
                 Toast.makeText(getContext(), "게시물이 아직 없습니다.", Toast.LENGTH_LONG).show();
+                updatePinsCount(); // 0으로 업데이트
             }
             isLoading = false;
         }).addOnFailureListener(e -> {
@@ -260,5 +334,132 @@ public class ListFragment extends Fragment {
             Toast.makeText(getContext(), "데이터 로딩 중 오류가 발생했습니다.", Toast.LENGTH_SHORT).show();
             isLoading = false;
         });
+    }
+
+    private void setupHeader() {
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user != null) {
+            // 사용자명 설정 (이메일에서 @ 앞부분 사용)
+            String email = user.getEmail();
+            if (email != null) {
+                String username = email.split("@")[0];
+                if (tvUsername != null) {
+                    tvUsername.setText("@" + username);
+                }
+            }
+
+            // 프로필 사진 설정 (기본값 사용)
+            if (ivProfilePicture != null) {
+                // Glide를 사용하여 프로필 사진 로드 가능
+                // 현재는 기본 아이콘 사용
+            }
+        }
+
+        // 게시물 수를 로드하여 게시물 수 업데이트
+        updatePinsCount();
+    }
+
+    /**
+     * 현재 위치를 가져와서 표시
+     */
+    private void getCurrentLocation() {
+        // 위치 권한 확인
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) 
+                != PackageManager.PERMISSION_GRANTED) {
+            // 권한이 없으면 요청
+            requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 
+                    LOCATION_PERMISSION_REQUEST_CODE);
+            return;
+        }
+
+        // 위치 가져오기
+        fusedLocationClient.getLastLocation()
+                .addOnSuccessListener(location -> {
+                    if (location != null) {
+                        getAddressFromLocation(location.getLatitude(), location.getLongitude());
+                    } else {
+                        hideLocationBadge();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("ListFragment", "Failed to get location", e);
+                    hideLocationBadge();
+                });
+    }
+
+    /**
+     * 위도, 경도를 주소로 변환하여 표시
+     */
+    private void getAddressFromLocation(double latitude, double longitude) {
+        Geocoder geocoder = new Geocoder(requireContext(), Locale.getDefault());
+        try {
+            List<Address> addresses = geocoder.getFromLocation(latitude, longitude, 1);
+            if (addresses != null && !addresses.isEmpty()) {
+                Address address = addresses.get(0);
+                
+                // 도시명 추출 (우선순위: locality > adminArea)
+                String city = address.getLocality();
+                if (city == null || city.isEmpty()) {
+                    city = address.getAdminArea();
+                }
+                
+                // 국가명 추출
+                String country = address.getCountryName();
+                
+                // 위치 정보 표시 (아이폰 스타일 배지)
+                if (tvCurrentLocation != null && locationBadge != null) {
+                    String locationText;
+                    if (city != null && !city.isEmpty()) {
+                        locationText = city;
+                    } else if (country != null && !country.isEmpty()) {
+                        locationText = country;
+                    } else {
+                        locationText = "위치";
+                    }
+                    
+                    tvCurrentLocation.setText(locationText);
+                    locationBadge.setVisibility(View.VISIBLE);
+                }
+            } else {
+                hideLocationBadge();
+            }
+        } catch (IOException e) {
+            Log.e("ListFragment", "Geocoder error", e);
+            hideLocationBadge();
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // 권한이 허용되면 위치 가져오기
+                getCurrentLocation();
+            } else {
+                hideLocationBadge();
+            }
+        }
+    }
+
+    private void updatePinsCount() {
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) return;
+
+        String currentUserEmail = user.getEmail();
+        if (currentUserEmail == null) return;
+
+        db.collection("TravelPosts")
+                .whereEqualTo("userEmail", currentUserEmail)
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    int count = queryDocumentSnapshots.size();
+                    if (tvPinsCount != null) {
+                        tvPinsCount.setText(String.valueOf(count));
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("ListFragment", "Error loading pins count", e);
+                });
     }
 }

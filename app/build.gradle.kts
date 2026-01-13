@@ -37,6 +37,8 @@ android {
 dependencies {
     // Google Maps SDK
     implementation("com.google.android.gms:play-services-maps:18.2.0")
+    // Google Location Services (현재 위치 가져오기)
+    implementation("com.google.android.gms:play-services-location:21.0.1")
     // Google Maps Utility Library (클러스터링용)
     implementation("com.google.maps.android:android-maps-utils:3.8.2")
     implementation(libs.appcompat)

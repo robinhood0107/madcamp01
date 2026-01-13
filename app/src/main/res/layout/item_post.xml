@@ -4,9 +4,10 @@
         xmlns:android="http://schemas.android.com/apk/res/android"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_margin="8dp"
-        app:cardCornerRadius="20dp"
-        app:cardElevation="4dp"
+        android:layout_marginBottom="16dp"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="2dp"
+        app:cardBackgroundColor="#FFFFFF"
         android:clipToOutline="true">
 
     <LinearLayout
@@ -14,50 +15,94 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-        <!-- 사용자 이메일 표시 (기존 userId TextView를 대체) -->
-        <TextView
-                android:id="@+id/tvUserEmail"
+        <!-- 이미지 영역 (위치 태그 포함) -->
+        <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="192dp">
+
+            <ImageView
+                    android:id="@+id/ivPostImage"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="centerCrop"
+                    android:background="#EEE"/>
+
+            <!-- 위치 태그 (오른쪽 상단) -->
+            <LinearLayout
+                    android:id="@+id/locationTag"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentTop="true"
+                    android:layout_alignParentEnd="true"
+                    android:layout_margin="12dp"
+                    android:orientation="horizontal"
+                    android:background="#80000000"
+                    android:paddingStart="8dp"
+                    android:paddingTop="4dp"
+                    android:paddingEnd="8dp"
+                    android:paddingBottom="4dp"
+                    android:gravity="center_vertical"
+                    android:visibility="gone">
+
+                <ImageView
+                        android:layout_width="12dp"
+                        android:layout_height="12dp"
+                        android:src="@android:drawable/ic_menu_mylocation"
+                        android:tint="#FFFFFF"/>
+
+                <TextView
+                        android:id="@+id/tvLocation"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:text="Shibuya, Tokyo"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:textColor="#FFFFFF"/>
+            </LinearLayout>
+        </RelativeLayout>
+
+        <!-- 제목, 날짜, 더보기 버튼 -->
+        <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:paddingStart="12dp"
-                android:paddingTop="8dp"
-                android:paddingEnd="12dp"
-                android:text="user_email@example.com"
-                android:textStyle="bold"/>
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="16dp">
 
-        <ImageView
-                android:id="@+id/ivPostImage"
-                android:layout_width="match_parent"
-                android:layout_height="180dp"
-                android:scaleType="centerCrop"
-                android:background="#EEE"/>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-
-            <TextView
-                    android:id="@+id/tvTitle"
+            <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:padding="12dp"
-                    android:text="제목"
-                    android:textSize="16sp"
-                    android:textStyle="bold"/>
+                    android:orientation="vertical">
 
-            <!-- 공개/비공개 상태 표시 -->
-            <TextView
-                    android:id="@+id/tvPublicStatus"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:paddingEnd="12dp"
-                    android:text="(공개)"
-                    android:textColor="#008800"
-                    android:textStyle="bold"
-                    android:visibility="gone"/> // 평소에는 숨겨둠
+                <TextView
+                        android:id="@+id/tvTitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Neon Lights"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textColor="#111827"/>
+
+                <TextView
+                        android:id="@+id/tvDate"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Added on Oct 12, 2023"
+                        android:textSize="12sp"
+                        android:textColor="#6B7280"/>
+            </LinearLayout>
+
+            <ImageButton
+                    android:id="@+id/btnMore"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@android:drawable/ic_menu_more"
+                    android:contentDescription="더보기"
+                    android:tint="#6B7280"/>
         </LinearLayout>
     </LinearLayout>
 </androidx.cardview.widget.CardView>
