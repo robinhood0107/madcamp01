@@ -4,7 +4,6 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -15,7 +14,9 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
 import com.google.android.gms.auth.api.signin.GoogleSignInClient;
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
-import com.google.android.gms.common.SignInButton;
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.AuthCredential;
@@ -27,11 +28,10 @@ public class LoginActivity extends AppCompatActivity {
 
     private static final int RC_SIGN_IN = 9001;
 
-    private EditText editEmail, editPassword;
-    private EditText editPasswordConfirm;
-    private Button btnMainAction;
+    private TextInputEditText editEmail, editPassword, editPasswordConfirm;
+    private TextInputLayout layoutPasswordConfirm;
+    private MaterialButton btnMainAction, btnGoogleLogin;
     private TextView textToggleMode;
-    private SignInButton btnGoogleLogin;
 
     private FirebaseAuth auth;
     private GoogleSignInClient googleSignInClient;
@@ -51,11 +51,12 @@ public class LoginActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
+
         auth = FirebaseAuth.getInstance();
 
         // Google Sign-In 설정
         GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                .requestIdToken("58745205594-g3j1m3jbfpo1mmnanq68jrg7ui26im5s.apps.googleusercontent.com") // google-services.json이 있으면 자동 생성됨
+                .requestIdToken("58745205594-g3j1m3jbfpo1mmnanq68jrg7ui26im5s.apps.googleusercontent.com")
                 .requestEmail()
                 .build();
 
@@ -64,6 +65,7 @@ public class LoginActivity extends AppCompatActivity {
         editEmail = findViewById(R.id.edit_login_email);
         editPassword = findViewById(R.id.edit_login_password);
         editPasswordConfirm = findViewById(R.id.edit_login_password_confirm);
+        layoutPasswordConfirm = findViewById(R.id.layout_password_confirm);
         btnMainAction = findViewById(R.id.btn_main_action);
         textToggleMode = findViewById(R.id.text_toggle_mode);
         btnGoogleLogin = findViewById(R.id.btn_google_login);
@@ -71,11 +73,11 @@ public class LoginActivity extends AppCompatActivity {
         textToggleMode.setOnClickListener(v -> {
             isSignUpMode = !isSignUpMode;
             if (isSignUpMode) {
-                editPasswordConfirm.setVisibility(View.VISIBLE);
+                layoutPasswordConfirm.setVisibility(View.VISIBLE);
                 btnMainAction.setText("회원가입 하기");
                 textToggleMode.setText("이미 계정이 있나요? 로그인");
             } else {
-                editPasswordConfirm.setVisibility(View.GONE);
+                layoutPasswordConfirm.setVisibility(View.GONE);
                 btnMainAction.setText("로그인");
                 textToggleMode.setText("계정이 없으신가요? 회원가입");
             }
@@ -97,7 +99,6 @@ public class LoginActivity extends AppCompatActivity {
             }
         });
 
-        // 구글 로그인 버튼 클릭
         btnGoogleLogin.setOnClickListener(v -> {
             Intent signInIntent = googleSignInClient.getSignInIntent();
             startActivityForResult(signInIntent, RC_SIGN_IN);
@@ -133,7 +134,10 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private void signIn(String email, String password) {
-        if (email.isEmpty() || password.isEmpty()) return;
+        if (email.isEmpty() || password.isEmpty()) {
+            Toast.makeText(this, "이메일과 비밀번호를 입력해주세요.", Toast.LENGTH_SHORT).show();
+            return;
+        }
         auth.signInWithEmailAndPassword(email, password)
                 .addOnCompleteListener(this, task -> {
                     if (task.isSuccessful()) {
@@ -146,13 +150,16 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private void signUp(String email, String password) {
-        if (email.isEmpty() || password.isEmpty()) return;
+        if (email.isEmpty() || password.isEmpty()) {
+            Toast.makeText(this, "이메일과 비밀번호를 입력해주세요.", Toast.LENGTH_SHORT).show();
+            return;
+        }
         auth.createUserWithEmailAndPassword(email, password)
                 .addOnCompleteListener(this, task -> {
                     if (task.isSuccessful()) {
                         Toast.makeText(this, "회원가입 성공! 로그인 해주세요.", Toast.LENGTH_SHORT).show();
                         isSignUpMode = false;
-                        editPasswordConfirm.setVisibility(View.GONE);
+                        layoutPasswordConfirm.setVisibility(View.GONE);
                         btnMainAction.setText("로그인");
                         textToggleMode.setText("계정이 없으신가요? 회원가입");
                     } else {
