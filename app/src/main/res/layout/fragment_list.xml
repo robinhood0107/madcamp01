@@ -147,7 +147,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="8dp"
-                            android:text="한 잔의 커피와 함께 세계를 탐험합니다."
+                            android:text="당신의 여행을 기록하세요"
                             android:textSize="12sp"
                             android:textColor="#6B7280"
                             android:maxLines="2"
