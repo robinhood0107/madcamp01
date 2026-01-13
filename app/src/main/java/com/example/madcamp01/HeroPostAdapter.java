@@ -16,12 +16,9 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 
 /**
  * 뷰페이저 히어로 카드 전용 어댑터.
@@ -37,7 +34,6 @@ public class HeroPostAdapter extends RecyclerView.Adapter<HeroPostAdapter.HeroVi
 
     private OnItemClickListener clickListener;
     private OnItemLongClickListener longClickListener;
-    private final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
 
     public HeroPostAdapter(Context context) {
         this.context = context;
@@ -125,53 +121,11 @@ public class HeroPostAdapter extends RecyclerView.Adapter<HeroPostAdapter.HeroVi
      */
     private String formatLocation(int position) {
         if (position < 0 || position >= documentSnapshots.size()) {
-            return "어딘가에서";
+            return LocationFormatter.DEFAULT_LOCATION;
         }
         
         DocumentSnapshot snapshot = documentSnapshots.get(position);
-        if (snapshot == null) {
-            return "어딘가에서";
-        }
-        
-        List<String> cities = (List<String>) snapshot.get("cities");
-        List<String> countries = (List<String>) snapshot.get("countries");
-        
-        // 중복 제거 및 정리
-        Set<String> uniqueCities = new HashSet<>();
-        Set<String> uniqueCountries = new HashSet<>();
-        
-        if (cities != null) {
-            for (String city : cities) {
-                if (city != null && !city.trim().isEmpty()) {
-                    uniqueCities.add(city.trim());
-                }
-            }
-        }
-        
-        if (countries != null) {
-            for (String country : countries) {
-                if (country != null && !country.trim().isEmpty()) {
-                    uniqueCountries.add(country.trim());
-                }
-            }
-        }
-        
-        // 포맷팅: "도시1, 도시2 · 국가1, 국가2" 형식 (String.join 사용 대신 직접 구현)
-        List<String> parts = new ArrayList<>();
-
-        if (!uniqueCities.isEmpty()) {
-            parts.add(joinWithComma(uniqueCities));
-        }
-
-        if (!uniqueCountries.isEmpty()) {
-            parts.add(joinWithComma(uniqueCountries));
-        }
-
-        if (parts.isEmpty()) {
-            return "어딘가에서";
-        }
-
-        return joinWithSeparator(parts, " · ");
+        return LocationFormatter.formatLocationFromSnapshot(snapshot);
     }
 
     /**
@@ -202,26 +156,6 @@ public class HeroPostAdapter extends RecyclerView.Adapter<HeroPostAdapter.HeroVi
         }
     }
 
-    // String.join을 직접 구현 (하위 버전 호환)
-    private String joinWithComma(Iterable<String> items) {
-        StringBuilder sb = new StringBuilder();
-        for (String s : items) {
-            if (s == null) continue;
-            if (sb.length() > 0) sb.append(", ");
-            sb.append(s);
-        }
-        return sb.toString();
-    }
-
-    private String joinWithSeparator(Iterable<String> items, String separator) {
-        StringBuilder sb = new StringBuilder();
-        for (String s : items) {
-            if (s == null) continue;
-            if (sb.length() > 0) sb.append(separator);
-            sb.append(s);
-        }
-        return sb.toString();
-    }
 
     public interface OnItemClickListener { void onItemClick(PostItem item); }
     public interface OnItemLongClickListener { void onItemLongClick(View anchorView, PostItem item); }

@@ -830,8 +830,13 @@ public class WriteFragment extends Fragment {
 
             // 미리 만들어두신 getCountryAndCity 함수 활용
             String[] locationInfo = getCountryAndCity(lat, lon);
-            countries.add(locationInfo[0]); // 국가명
-            cities.add(locationInfo[1]);    // 도시명
+            // null이나 "어딘가에서"가 아닌 경우만 추가
+            if (locationInfo[0] != null && !locationInfo[0].isEmpty() && !locationInfo[0].equals("어딘가에서")) {
+                countries.add(locationInfo[0]); // 국가명
+            }
+            if (locationInfo[1] != null && !locationInfo[1].isEmpty() && !locationInfo[1].equals("어딘가에서")) {
+                cities.add(locationInfo[1]);    // 도시명
+            }
         }
 
         // Firestore에 리스트 형태로 저장
@@ -880,7 +885,7 @@ public class WriteFragment extends Fragment {
         }
     }
     private String getAddressFromLocation(double lat, double lon) {
-        if (lat == 0.0 && lon == 0.0) return "위치 정보 없음";
+        if (lat == 0.0 && lon == 0.0) return "어딘가에서";
 
         Geocoder geocoder = new Geocoder(getContext(), Locale.KOREA);
         try {
@@ -895,8 +900,8 @@ public class WriteFragment extends Fragment {
         return "주소 변환 실패";
     }
     private String[] getCountryAndCity(double lat, double lon) {
-        String country = "정보 없음";
-        String city = "정보 없음";
+        String country = "어딘가에서";
+        String city = "어딘가에서";
 
         if (lat != 0.0 || lon != 0.0) {
             Geocoder geocoder = new Geocoder(getContext(), Locale.getDefault());
@@ -905,19 +910,20 @@ public class WriteFragment extends Fragment {
                 if (addresses != null && !addresses.isEmpty()) {
                     Address address = addresses.get(0);
 
-                    // 국가명 추출
-                    country = address.getCountryName() != null ? address.getCountryName() : "알 수 없는 국가";
+                    country = address.getCountryName();
+                    if (country == null || country.isEmpty()) {
+                        country = null;
+                    }
 
-                    // 도시명 추출 (시/도 또는 구/군)
-                    city = address.getLocality(); // 광역시, 시 (예: 서울특별시, 수원시)
+                    city = address.getLocality();
                     if (city == null || city.isEmpty()) {
-                        city = address.getAdminArea(); // 도 (예: 경기도, California)
+                        city = address.getAdminArea();
                     }
                     if (city == null || city.isEmpty()) {
                         city = address.getSubAdminArea();
                     }
                     if (city == null || city.isEmpty()) {
-                        city = "알 수 없는 도시";
+                        city = null;
                     }
                 }
             } catch (Exception e) {
