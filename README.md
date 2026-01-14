@@ -26,7 +26,7 @@
 </table>
 <!-- readme: contributors -end -->
 
-**robinhood0107**: UI/UX 디자인 • Firebase DB/Storage • 게시판(Feed) 및 리스트 탭 • 상세 페이지 • 이미지 전체화면 • 글 작성/수정 • 이미지 압축/썸네일
+**robinhood0107**: UI/UX 디자인 • Firebase DB/Storage • 게시판(Feed) 및 리스트 탭 • 상세 페이지 • 이미지 전체화면 • 글 작성/수정 • 이미지 압축/썸네일 • 지오코딩딩
 
 **jongjm1023**: UI/UX 디자인 • 지도(Map) 기능 • Firebase DB/Storage • 로그인 • EXIF 위치 추출 • 역지오코딩 • 검색 기능 • 마이 페이지
 
@@ -40,25 +40,88 @@ PinLog는 여행 기록을 지도에 핀으로 남기고 공유할 수 있는 �
 ![Firebase](https://img.shields.io/badge/Firebase-039BE5?style=for-the-badge&logo=Firebase&logoColor=white)
 ![Google Maps](https://img.shields.io/badge/Google%20Maps-4285F4?style=for-the-badge&logo=googlemaps&logoColor=white)
 
+#### 런타임 / 빌드 환경
+- **언어 / SDK**
+  - **Java 11** (sourceCompatibility / targetCompatibility)
+  - **Android SDK**: `minSdk 24`, `targetSdk 36`, `compileSdk 36`
+- **Gradle / Android Gradle Plugin**
+  - Gradle Wrapper + **AGP 8.13.2**
+  - `com.google.gms.google-services` 플러그인
+  - `com.google.android.libraries.mapsplatform.secrets-gradle-plugin` (Google Maps API 키 관리)
+
+#### 앱 구조 / 아키텍처
+- **Single-Activity, Multi-Fragment 구조**
+  - `MainActivity` + `BottomNavigationView` 로 **My Feed / Community / Map / Profile** 탭 전환
+  - `DetailFragment`, `FullScreenImageFragment`, `WriteFragment` 등은 백스택을 이용한 화면 전환
+- **UI 구성요소**
+  - `RecyclerView` + `PostAdapter` / `HeroPostAdapter` / `DetailAdapter` / `PhotoAdapter`
+  - `ViewPager2` 기반 Hero 카드 슬라이더
+  - `FloatingActionButton`, `MaterialButton`, `TextInputLayout`, `MaterialSwitch` 등 Material 컴포넌트 사용
+  - `CardView`, 커스텀 `SquareImageView`를 이용한 카드형 레이아웃
+
 #### 주요 라이브러리
 - **Firebase**
-  - Authentication: 사용자 인증
-  - Firestore: 실시간 데이터베이스
-  - Storage: 이미지 저장
-- **Google Maps SDK**: 지도 표시 및 위치 서비스
-- **Glide**: 이미지 로딩 및 캐싱
-- **PhotoView**: 이미지 확대/축소 기능
-- **Material Components**: Material Design 컴포넌트
+  - **Firebase Authentication** (`firebase-auth`): 이메일/비밀번호 로그인, Google 로그인, 재인증 및 회원 탈퇴
+  - **Cloud Firestore** (`firebase-firestore`): 여행 기록(`TravelPosts`) CRUD, 공개/비공개, 검색용 도시/국가 필드 저장
+  - **Firebase Storage** (`firebase-storage`): 원본 이미지 및 썸네일 업로드/삭제
+  - **Firebase Realtime Database** (`firebase-database`): 프로젝트에 의존성 존재 (확장용)
+  - **Firebase Analytics** (`firebase-analytics`): 앱 사용 분석 이벤트 수집
+  - **Firebase App Check Debug** (`firebase-appcheck-debug`): 개발 환경 App Check
+- **Google Play Services / Maps**
+  - **Google Sign-In** (`play-services-auth`): Google 계정 로그인
+  - **Google Maps SDK** (`play-services-maps`): 지도 표시
+  - **Fused Location Provider** (`play-services-location`): 현재 위치 조회
+  - **Android Maps Utils** (`android-maps-utils`): 마커 클러스터링(`ClusterManager`, 커스텀 `PhotoRenderer`)
+- **지도 / 위치 / EXIF**
+  - `ExifInterface`: 사진 EXIF 메타데이터(촬영 일시, 위도·경도) 파싱
+  - `Geocoder`: 역지오코딩(위도·경도 → 주소, 도시/국가명 추출), 위치명 → 좌표 지오코딩
+- **UI / 이미지**
+  - **Glide** (`com.github.bumptech.glide:glide:4.16.0`): 이미지 로딩 및 캐싱, 지도 마커 썸네일 로딩
+  - **PhotoView** (`com.github.chrisbanes:PhotoView:2.3.0`): 전체 화면 이미지 확대/축소 제스처
+  - **AndroidX AppCompat / Material / Activity / ConstraintLayout / CardView**: 전반적인 UI 구성
+- **테스트**
+  - **JUnit4**, **AndroidX Test JUnit**, **Espresso**: 단위/계측 테스트 의존성
 
 ### 📌 주요 기능
 
-- **여행 기록 작성**: 여행 일정, 제목, 사진, 위치 정보를 포함한 여행 기록을 작성할 수 있습니다.
-- **My Feed**: 본인이 작성한 여행 기록을 목록 형태로 확인할 수 있습니다.
-- **Community**: 다른 유저들이 공개한 여행 기록을 Hero 이미지 형태로 탐색하고, 검색 기능을 통해 원하는 기록을 찾을 수 있습니다.
-- **지도 탐색**: Google Maps를 통해 본인이 작성한 여행 기록의 위치를 지도에서 확인하고, 클러스터링을 통해 효율적으로 탐색할 수 있습니다.
-- **상세 페이지**: 각 여행 기록의 상세 정보를 확인하고, 사진을 그리드 형태로 탐색할 수 있습니다.
-- **프로필**: 사용자 정보 확인, 로그아웃, 회원 탈퇴를 진행할 수 있습니다.
-- **이미지 전체 화면**: 사진을 탭하여 전체 화면으로 확대하여 볼 수 있습니다.
+- **여행 기록 작성**
+  - 여행 **시작일·여행 일수(박/일)** 선택 다이얼로그
+  - 사진 EXIF 촬영 일시를 기반으로 **여행 기간 밖 사진 자동 필터링**
+  - 여행 일차(Day)를 계산해 각 사진에 매핑하고, **일차 + 시간 순 정렬**
+  - 사진별 **일자/시간·위치 수동 수정**, 위치명 입력 시 지오코딩으로 좌표/주소 갱신
+  - 사진 **드래그 앤 드롭 재정렬**, 개별 삭제/편집
+  - 업로드 시 원본 이미지 + **썸네일 자동 생성 및 Firebase Storage 업로드**
+  - 게시글 공개/비공개 토글 (MaterialSwitch, 색상 피드백 포함)
+- **My Feed (내 피드)**
+  - 로그인한 사용자의 이메일(`userEmail`) 기준으로 **본인 게시글만 필터링**
+  - 무한 스크롤(페이지네이션) 로딩
+  - 상단 프로필 카드에 **이메일, 작성한 핀 개수, 현재 위치 배지(iOS 스타일)** 표시
+  - 현재 위치는 Fused Location + Geocoder로 도시/국가명 추출
+  - 게시글 롱클릭 시 **수정 / 삭제 컨텍스트 메뉴**, 삭제 시 Storage 원본·썸네일까지 함께 정리
+- **Community (공개 피드)**
+  - 공개(`isPublic = true`)된 게시글을 **Hero 이미지 슬라이더(ViewPager2)** 로 탐색
+  - `createdAt` 기준 **최신순 / 오래된순 정렬** 토글
+  - 도시/국가명을 대상으로 한 **클라이언트 사이드 검색**
+    - Firestore에서 공개 게시물 전체를 가져와 `cities`, `countries` 배열에 대해 소문자 포함 매칭
+  - Hero 카드 인디케이터(최대 개수 제한) + 좌우 이동 버튼
+  - 게시글 롱클릭 시 **소유자에게만 수정/삭제 메뉴 노출**, 삭제 시 Storage 이미지·썸네일 삭제 포함
+- **지도(Map) 탐색**
+  - 내 게시글의 `imageLatitudes`, `imageLongitudes`, `images`를 기반으로 **각 사진을 개별 마커로 표시**
+  - `ClusterManager` + 커스텀 `PhotoRenderer` 로 **사진 썸네일 기반 마커 클러스터링**
+  - 개별 마커 클릭 시 해당 게시글 상세 보기로 이동
+  - 클러스터 클릭 시 확대 대신 **첫 번째 아이템 게시글로 바로 이동**하도록 UX 커스터마이징
+- **상세 페이지**
+  - 게시글의 사진을 **일차 헤더 + 사진 그리드 + 푸터** 형태로 표시
+  - SeekBar를 통해 **열 개수(1~N열) 동적 조절**, 열이 많아질수록 헤더/푸터 레이아웃을 최적화
+  - 사진 탭 시 `FullScreenImageFragment`로 이동하여 전체 화면 확대/축소
+- **프로필 (마이 페이지)**
+  - 이메일, 가입일 표기 (Firebase Auth `UserMetadata.creationTimestamp`)
+  - **로그아웃**: FirebaseAuth 세션 종료 후 로그인 화면으로 이동
+  - **회원 탈퇴**: 이메일·비밀번호 재인증 후 계정 삭제, 완료 시 세션 정리 및 로그인 화면 이동
+- **이미지 전체 화면**
+  - `PhotoView` 기반 핀치 줌/더블 탭 확대/이동
+  - Glide로 고해상도 이미지 로딩
+  - 상단 닫기 버튼으로 백스택 팝 → 이전 화면으로 자연스럽게 복귀
 
 ### 📍 자세한 기능
 
