@@ -1,5 +1,5 @@
 # PinLog (핀로그)
-
+![poster](./img/splash.png)
 당신의 여행을 기록하고 공유하세요
 
 ### 👥 기여자
@@ -26,9 +26,11 @@
 </table>
 <!-- readme: contributors -end -->
 
-**robinhood0107**: UI/UX 디자인 • Firebase DB/Storage • 게시판(Feed) 및 리스트 탭 • 상세 페이지 • 이미지 전체화면 • 글 작성/수정 • 이미지 압축/썸네일 • 지오코딩딩
+**robinhood0107**: UI/UX 디자인 • Firebase DB/Storage • 게시판(Feed) 및 리스트 탭 • 상세 페이지 • 이미지 전체화면 • 글 작성/수정 • 이미지 압축/썸네일 • 지오코딩
 
 **jongjm1023**: UI/UX 디자인 • 지도(Map) 기능 • Firebase DB/Storage • 로그인 • EXIF 위치 추출 • 역지오코딩 • 검색 기능 • 마이 페이지
+
+<img src="./img/PinLog_icon.png" width="100px" height="100px" title="Github_Logo"></img>
 
 ### ✨ 소개
 PinLog는 여행 기록을 지도에 핀으로 남기고 공유할 수 있는 위치 기반 여행 기록 앱입니다. 여행 중 찍은 사진과 함께 위치 정보를 저장하고, 지도에서 여행 경로를 시각적으로 확인할 수 있습니다. 다른 사람들의 여행 기록을 탐색하고 영감을 얻을 수도 있습니다.
@@ -213,13 +215,33 @@ cd madcamp01
 ### 📱 주요 화면
 
 - **스플래시 화면**: 앱 시작 시 표시
-- **로그인 화면**: Google 로그인 및 이메일 회원가입/로그인
+
+- **로그인 화면**: Google 로그인 및 이메일 회원가입/로그인  
+  <img src="./img/login.jpg" width="320" alt="로그인 화면">
+
 - **메인 화면**: 하단 네비게이션 바를 통한 화면 전환
   - **My Feed 탭**: 본인이 작성한 여행 기록 목록 (무한 스크롤, 본인 글만 표시)
+
+    <video src="./movie/myfeed.mp4" width="360" controls muted></video>  
+    <img src="./img/myfeed.jpg" width="360" alt="My Feed 화면">
+
   - **Community 탭**: 공개된 여행 기록을 Hero 이미지 형태로 탐색 (검색 및 정렬 기능 포함)
+
+    <video src="./movie/community.mp4" width="360" controls muted></video>
+
   - **Map 탭**: 본인이 작성한 여행 기록의 위치를 지도에 썸네일 마커로 표시
-  - **Profile 탭**: 사용자 정보 확인, 로그아웃, 회원 탈퇴
-- **글 작성 화면**: 여행 기록 작성 및 수정 (공개/비공개 설정 가능)
+
+    <video src="./movie/map.mp4" width="360" controls muted></video>
+
+  - **Profile 탭**: 사용자 정보 확인, 로그아웃, 회원 탈퇴  
+    <img src="./img/mypage.jpg" width="360" alt="마이 페이지 화면">
+
+- **글 작성 화면**: 여행 기록 작성 및 수정 (공개/비공개 설정 가능), 게시물의 위치와 시간변경도 가능
+
+
+  <img src="./img/selectdays.jpg" width="360" alt="여행 일수 선택 화면">  
+  <img src="./img/WriteFragment.jpg" width="360" alt="글 작성 화면">
+
 - **상세 화면**: 여행 기록 상세 정보 및 사진 그리드
 - **이미지 전체 화면**: 사진 확대 보기
 
