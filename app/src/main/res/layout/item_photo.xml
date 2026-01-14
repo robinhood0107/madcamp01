@@ -29,4 +29,60 @@
         android:layout_marginTop="4dp"
         android:layout_marginEnd="4dp" />
 
+    <!-- 수정 버튼 (Pencil) -->
+    <ImageView
+        android:id="@+id/btn_edit_photo"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:background="@android:color/transparent"
+        android:src="@drawable/ic_edit"
+        android:padding="4dp"
+        android:contentDescription="수정"
+        app:tint="#FFFFFF"
+        app:layout_constraintStart_toStartOf="@+id/iv_photo"
+        app:layout_constraintTop_toTopOf="@+id/iv_photo"
+        android:layout_marginTop="4dp"
+        android:layout_marginStart="4dp" />
+
+    <!-- Metadata Overlay -->
+    <View
+        android:layout_width="0dp"
+        android:layout_height="40dp"
+        android:background="#80000000"
+        app:layout_constraintBottom_toBottomOf="@+id/iv_photo"
+        app:layout_constraintStart_toStartOf="@+id/iv_photo"
+        app:layout_constraintEnd_toEndOf="@+id/iv_photo"/>
+
+    <TextView
+        android:id="@+id/tv_photo_date"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="2024.01.01"
+        android:textColor="#FFFFFF"
+        android:textSize="10sp"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        app:layout_constraintStart_toStartOf="@+id/iv_photo"
+        app:layout_constraintEnd_toEndOf="@+id/iv_photo"
+        app:layout_constraintBottom_toTopOf="@+id/tv_photo_location"
+        android:layout_marginBottom="2dp"/>
+
+    <TextView
+        android:id="@+id/tv_photo_location"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Location"
+        android:textColor="#FFFFFF"
+        android:textSize="10sp"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
+        android:paddingBottom="4dp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        app:layout_constraintStart_toStartOf="@+id/iv_photo"
+        app:layout_constraintEnd_toEndOf="@+id/iv_photo"
+        app:layout_constraintBottom_toBottomOf="@+id/iv_photo"/>
+
 </androidx.constraintlayout.widget.ConstraintLayout>

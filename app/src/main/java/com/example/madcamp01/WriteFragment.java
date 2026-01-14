@@ -239,6 +239,12 @@ public class WriteFragment extends Fragment {
         btnChangeTravelInfo.setOnClickListener(v -> {
             showTravelInfoDialog();
         });
+        
+        // 공개/비공개 스위치 리스너 및 초기 색상 설정
+        switchIsPublic.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            updatePublicSwitchColor(isChecked);
+        });
+        updatePublicSwitchColor(switchIsPublic.isChecked());
 
         btnSave.setOnClickListener(v -> {
             uploadToFirebase();
@@ -247,6 +253,10 @@ public class WriteFragment extends Fragment {
         photoAdapter.setOnPhotoDeleteListener(position -> {
             currentPostItem.removePhoto(position);
             photoAdapter.updateAdapterItems();
+        });
+        
+        photoAdapter.setOnPhotoEditListener(position -> {
+            showPhotoEditDialog(position);
         });
 
         ItemTouchHelper itemTouchHelper = new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(
@@ -810,6 +820,8 @@ public class WriteFragment extends Fragment {
                 return;
             }
             
+
+            
             int thumbnailSize = 300;
             Bitmap thumbnail = Bitmap.createScaledBitmap(originalBitmap, thumbnailSize, thumbnailSize, true);
             
@@ -1366,6 +1378,181 @@ public class WriteFragment extends Fragment {
             textTravelPeriod.setText("여행 기간: 설정되지 않음");
             textTravelPeriod.setVisibility(View.VISIBLE);
         }
+    }
+
+
+    private void showPhotoEditDialog(int position) {
+        if (getContext() == null) return;
+        
+        android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(getContext());
+        
+        // 커스텀 레이아웃 생성
+        android.widget.LinearLayout layout = new android.widget.LinearLayout(getContext());
+        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        layout.setPadding(50, 40, 50, 10);
+        
+        // 날짜 선택 뷰
+        android.widget.TextView tvDateLabel = new android.widget.TextView(getContext());
+        tvDateLabel.setText("날짜 및 시간");
+        tvDateLabel.setTextColor(android.graphics.Color.GRAY);
+        layout.addView(tvDateLabel);
+        
+        android.widget.TextView tvDateValue = new android.widget.TextView(getContext());
+        tvDateValue.setTextSize(16);
+        tvDateValue.setPadding(0, 10, 0, 30);
+        
+        Date currentDate = currentPostItem.getImageDate(position);
+        final Calendar calendar = Calendar.getInstance();
+        if (currentDate != null) {
+            calendar.setTime(currentDate);
+        }
+        
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy년 MM월 dd일 HH:mm", Locale.getDefault());
+        tvDateValue.setText(sdf.format(calendar.getTime()));
+        layout.addView(tvDateValue);
+        
+        // 날짜 클릭 시 DatePickerDialog -> TimePickerDialog
+        tvDateValue.setOnClickListener(v -> {
+            new android.app.DatePickerDialog(getContext(), (view, year, month, dayOfMonth) -> {
+                calendar.set(Calendar.YEAR, year);
+                calendar.set(Calendar.MONTH, month);
+                calendar.set(Calendar.DAY_OF_MONTH, dayOfMonth);
+                
+                // 시간 설정 UI 개선: 스피너 스타일 사용 (Theme_Holo_Light_Dialog_NoActionBar 등)
+                // 또는 시스템 기본 테마가 불편하다면 Holo 테마를 강제하여 직관적인 스피너로 변경
+                new android.app.TimePickerDialog(getContext(), android.R.style.Theme_Holo_Light_Dialog_NoActionBar, (timeView, hourOfDay, minute) -> {
+                    calendar.set(Calendar.HOUR_OF_DAY, hourOfDay);
+                    calendar.set(Calendar.MINUTE, minute);
+                    tvDateValue.setText(sdf.format(calendar.getTime()));
+                }, calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), false).show();
+            }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)).show();
+        });
+        
+        // 위치 입력 뷰
+        android.widget.TextView tvLocationLabel = new android.widget.TextView(getContext());
+        tvLocationLabel.setText("위치");
+        tvLocationLabel.setTextColor(android.graphics.Color.GRAY);
+        layout.addView(tvLocationLabel);
+        
+        android.widget.EditText editLocation = new android.widget.EditText(getContext());
+        String currentLocation = currentPostItem.getFormattedLocation(position);
+        editLocation.setText(currentLocation != null ? currentLocation : "");
+        editLocation.setHint("위치 이름을 입력하세요 (예: 남산타워)");
+        layout.addView(editLocation);
+        
+        builder.setTitle("사진 정보 수정")
+                .setView(layout)
+                .setPositiveButton("확인", null) // 리스너를 나중에 재정의하기 위해 null
+                .setNegativeButton("취소", null);
+                
+        android.app.AlertDialog dialog = builder.create();
+        
+        dialog.setOnShowListener(d -> {
+            android.widget.Button btnConfirm = dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE);
+            btnConfirm.setOnClickListener(v -> {
+                String newLocationName = editLocation.getText().toString().trim();
+                Date newDate = calendar.getTime();
+                
+                // 위치 이름이 변경되었거나 비어있지 않은 경우 지오코딩 시도
+                if (!newLocationName.isEmpty() && !newLocationName.equals(currentLocation)) {
+                    btnConfirm.setEnabled(false); // 중복 클릭 방지
+                    geocodeLocation(newLocationName, new GeocodeListener() {
+                        @Override
+                        public void onGeocodeSuccess(double lat, double lng, String address) {
+                            if (getActivity() != null) {
+                                getActivity().runOnUiThread(() -> {
+                                    updatePhotoItem(position, newDate, lat, lng, address); // 주소 사용
+                                    dialog.dismiss();
+                                });
+                            }
+                        }
+                        
+                        @Override
+                        public void onGeocodeFailure() {
+                             if (getActivity() != null) {
+                                getActivity().runOnUiThread(() -> {
+                                    Toast.makeText(getContext(), "위치를 찾을 수 없습니다. 정확한 장소명을 입력해주세요.", Toast.LENGTH_SHORT).show();
+                                    btnConfirm.setEnabled(true);
+                                });
+                            }
+                        }
+                    });
+                } else {
+                    // 위치 변경 없으면 날짜만 업데이트 (위치 좌표는 기존 유지)
+                    updatePhotoItem(position, newDate, 
+                        currentPostItem.getImageLatitude(position), 
+                        currentPostItem.getImageLongitude(position), 
+                        newLocationName);
+                    dialog.dismiss();
+                }
+            });
+        });
+        
+        dialog.show();
+    }
+    
+    private void updatePublicSwitchColor(boolean isPublic) {
+        int color;
+        if (isPublic) {
+            // Public: Green
+            color = android.graphics.Color.parseColor("#4CAF50");
+            switchIsPublic.setThumbTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE));
+        } else {
+            // Private: Red
+            color = android.graphics.Color.parseColor("#F44336");
+            switchIsPublic.setThumbTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE));
+        }
+        
+        // Track 색상 변경 (모든 상태에 대해 동일한 색상 적용)
+        switchIsPublic.setTrackTintList(android.content.res.ColorStateList.valueOf(color));
+    }
+
+    private void updatePhotoItem(int position, Date date, Double lat, Double lng, String location) {
+         currentPostItem.updatePhoto(position,
+            date,
+            lat,
+            lng,
+            currentPostItem.getImageDay(position), // 날짜가 바뀌면 Day도 재계산해야 하나? 
+            currentPostItem.getImageUrl(position),
+            currentPostItem.getImageThumbnailUrl(position),
+            location
+        );
+        
+        // 날짜가 변경되었을 수 있으므로 일차(Day) 재계산 및 정렬
+        calculateDayNumber(position);
+        sortPhotosByDay();
+        photoAdapter.updateAdapterItems();
+    }
+
+
+
+    interface GeocodeListener {
+        void onGeocodeSuccess(double lat, double lng, String address);
+        void onGeocodeFailure();
+    }
+
+    private void geocodeLocation(String locationName, GeocodeListener listener) {
+        executorService.execute(() -> {
+            if (getContext() == null) {
+                listener.onGeocodeFailure();
+                return;
+            }
+            
+            Geocoder geocoder = new Geocoder(getContext(), Locale.getDefault());
+            try {
+                List<Address> addresses = geocoder.getFromLocationName(locationName, 1);
+                if (addresses != null && !addresses.isEmpty()) {
+                    Address address = addresses.get(0);
+                    
+                    listener.onGeocodeSuccess(address.getLatitude(), address.getLongitude(), address.toString()); 
+                } else {
+                    listener.onGeocodeFailure();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+                listener.onGeocodeFailure();
+            }
+        });
     }
 }
 
