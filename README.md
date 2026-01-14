@@ -3,6 +3,26 @@
 당신의 여행을 기록하고 공유하세요
 
 <!-- readme: contributors -start -->
+<table>
+	<tbody>
+		<tr>
+            <td align="center">
+                <a href="https://github.com/robinhood0107">
+                    <img src="https://avatars.githubusercontent.com/u/82791582?v=4" width="100;" alt="robinhood0107"/>
+                    <br />
+                    <sub><b>robinhood0107</b></sub>
+                </a>
+            </td>
+            <td align="center">
+                <a href="https://github.com/jongjm1023">
+                    <img src="https://avatars.githubusercontent.com/u/240729772?v=4" width="100;" alt="jongjm1023"/>
+                    <br />
+                    <sub><b>jongjm1023</b></sub>
+                </a>
+            </td>
+		</tr>
+	<tbody>
+</table>
 <!-- readme: contributors -end -->
 
 ### ✨ 소개
