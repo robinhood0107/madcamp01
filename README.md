@@ -4,6 +4,26 @@
 
 ### 👥 기여자
 <!-- readme: contributors -start -->
+<table>
+	<tbody>
+		<tr>
+            <td align="center">
+                <a href="https://github.com/robinhood0107">
+                    <img src="https://avatars.githubusercontent.com/u/82791582?v=4" width="100;" alt="robinhood0107"/>
+                    <br />
+                    <sub><b>robinhood0107</b></sub>
+                </a>
+            </td>
+            <td align="center">
+                <a href="https://github.com/jongjm1023">
+                    <img src="https://avatars.githubusercontent.com/u/240729772?v=4" width="100;" alt="jongjm1023"/>
+                    <br />
+                    <sub><b>jongjm1023</b></sub>
+                </a>
+            </td>
+		</tr>
+	<tbody>
+</table>
 <!-- readme: contributors -end -->
 
 **robinhood0107**: UI/UX 디자인 • Firebase DB/Storage • 게시판(Feed) 및 리스트 탭 • 상세 페이지 • 이미지 전체화면 • 글 작성/수정 • 이미지 압축/썸네일
