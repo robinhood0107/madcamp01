@@ -163,6 +163,39 @@ public class PostItem implements Parcelable {
         }
         return imageLocations.get(index);
     }
+
+    /**
+     * 저장된 위치 문자열(Address.toString() 덤프 또는 일반 문자열)을 파싱하여 읽기 편한 형태로 반환.
+     */
+    public String getFormattedLocation(int index) {
+        String rawLocation = getImageLocation(index);
+        if (rawLocation == null || rawLocation.isEmpty()) {
+            return "위치 정보 없음";
+        }
+
+        // Address.toString() 포맷인지 확인: "Address[addressLines=[0:..."
+        if (rawLocation.startsWith("Address[")) {
+            // 정규식이나 단순 파싱으로 정보 추출 시도
+            // 1. "addressLines=[0: " 다음에 나오는 문자열 추출
+            int start = rawLocation.indexOf("addressLines=[0:\"");
+            if (start != -1) {
+                start += "addressLines=[0:\"".length();
+                int end = rawLocation.indexOf("\"]", start);
+                if (end != -1) {
+                    String fullAddress = rawLocation.substring(start, end);
+                    // "대한민국 " 제거 등 간단한 포맷팅
+                    return fullAddress.replace("대한민국 ", "").trim();
+                }
+            }
+            // 파싱 실패 시 원본 반환 (혹은 "위치 정보 없음")
+            // 하지만 보통 Address[...] 자체가 너무 기니까, "위치 정보 있음(변환 실패)" 보단 그냥 원본이 나을수도 있음.
+            // 여기선 그냥 원본 반환
+            return rawLocation;
+        }
+
+        // 일반 문자열이면 그대로 반환
+        return rawLocation;
+    }
     
     /**
      * 모든 병렬 리스트에 사진 정보를 동시에 추가.

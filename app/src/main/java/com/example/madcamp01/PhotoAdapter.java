@@ -31,9 +31,20 @@ public class PhotoAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
     public interface OnPhotoDeleteListener {
         void onDelete(int position);
     }
+    
+    public interface OnPhotoEditListener {
+        void onEdit(int position);
+    }
+    
     private OnPhotoDeleteListener deleteListener;
+    private OnPhotoEditListener editListener;
+    
     public void setOnPhotoDeleteListener(OnPhotoDeleteListener listener) {
         this.deleteListener = listener;
+    }
+    
+    public void setOnPhotoEditListener(OnPhotoEditListener listener) {
+        this.editListener = listener;
     }
     
     private static class AdapterItem {
@@ -125,11 +136,39 @@ public class PhotoAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
                 Glide.with(context).load(imageUrl).into(photoHolder.ivPhoto);
             }
             
+            
+            // 날짜 표시
+            java.util.Date date = postItem.getImageDate(photoIndex);
+            if (date != null) {
+                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy.MM.dd HH:mm", java.util.Locale.getDefault());
+                photoHolder.tvDate.setText(sdf.format(date));
+            } else {
+                photoHolder.tvDate.setText("");
+            }
+            
+            // 위치 표시
+            String location = postItem.getFormattedLocation(photoIndex);
+            if (location != null && !location.isEmpty()) {
+                photoHolder.tvLocation.setText(location);
+            } else {
+                photoHolder.tvLocation.setText("위치 정보 없음");
+            }
+
             photoHolder.btnDeletePhoto.setOnClickListener(v -> {
                 if (deleteListener != null) {
                     deleteListener.onDelete(photoIndex);
                 }
             });
+            
+            // 수정 버튼 클릭 시 편집 다이얼로그 호출
+            photoHolder.btnEditPhoto.setOnClickListener(v -> {
+                if (editListener != null) {
+                    editListener.onEdit(photoIndex);
+                }
+            });
+            
+            // 사진 클릭 이벤트 제거 (요청사항 반영)
+            photoHolder.ivPhoto.setOnClickListener(null);
         }
     }
 
@@ -150,11 +189,17 @@ public class PhotoAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
     static class PhotoViewHolder extends RecyclerView.ViewHolder {
         ImageView ivPhoto;
         ImageView btnDeletePhoto;
+        ImageView btnEditPhoto; // Added for edit button
+        TextView tvDate;
+        TextView tvLocation;
         
         PhotoViewHolder(@NonNull View itemView) {
             super(itemView);
             ivPhoto = itemView.findViewById(R.id.iv_photo);
             btnDeletePhoto = itemView.findViewById(R.id.btn_delete_photo);
+            btnEditPhoto = itemView.findViewById(R.id.btn_edit_photo); // Initialize
+            tvDate = itemView.findViewById(R.id.tv_photo_date);
+            tvLocation = itemView.findViewById(R.id.tv_photo_location);
         }
     }
 }
