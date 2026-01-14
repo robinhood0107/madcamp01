@@ -2,8 +2,13 @@
 
 당신의 여행을 기록하고 공유하세요
 
+### 👥 기여자
 <!-- readme: contributors -start -->
 <!-- readme: contributors -end -->
+
+**robinhood0107**: UI/UX 디자인 • Firebase DB/Storage • 게시판(Feed) 및 리스트 탭 • 상세 페이지 • 이미지 전체화면 • 글 작성/수정 • 이미지 압축/썸네일
+
+**jongjm1023**: 지도(Map) 기능 • Firebase Storage • 로그인 • EXIF 위치 추출 • 역지오코딩 • 검색 기능
 
 ### ✨ 소개
 PinLog는 여행 기록을 지도에 핀으로 남기고 공유할 수 있는 위치 기반 여행 기록 앱입니다. 여행 중 찍은 사진과 함께 위치 정보를 저장하고, 지도에서 여행 경로를 시각적으로 확인할 수 있습니다. 다른 사람들의 여행 기록을 탐색하고 영감을 얻을 수도 있습니다.
@@ -67,14 +72,13 @@ PinLog는 여행 기록을 지도에 핀으로 남기고 공유할 수 있는 �
 - **그리드 레이아웃**: 상세 페이지에서 사진을 그리드 형태로 탐색 (열 개수 조절 가능)
 - **Hero 이미지**: Community 탭에서 주요 이미지를 ViewPager로 크게 표시
 - **검색 기능**: Community 탭에서 도시/국가명으로 여행 기록 검색
-- **정렬 기능**: Community 탭에서 최신순/오래된순 정렬
-- **다크 모드 지원**: 시스템 설정에 따른 다크 모드 지원
+- **다크 모드 지원**: 시스템 설정에 따른 라이트 모드, 다크 모드 지원
 - **Material Design 3**: Material 3 테마 적용 (테마는 Material 3, 위젯은 Material Components 사용)
 
 ### 🛠️ 설치 및 실행 방법
 
 #### 전제 조건
-- Android Studio (Hedgehog | 2023.1.1 이상)
+- Android Studio
 - JDK 11 이상
 - Android SDK (API 24 이상)
 - Google Maps API 키
